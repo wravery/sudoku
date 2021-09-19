@@ -26,7 +26,15 @@ pub struct Board(pub [[u8; 9]; 9]);
 
 impl Board {
   pub fn solve(&mut self, exhaustive: bool) -> Solutions {
-    let mut rng = thread_rng();
+    let mut rng = match exhaustive {
+      false => Some(thread_rng()),
+      true => None,
+    };
+
+    self.solve_recursive(&mut rng)
+  }
+
+  fn solve_recursive(&mut self, rng: &mut Option<ThreadRng>) -> Solutions {
     for row in 1..=9_u8 {
       for column in 1..=9_u8 {
         if self.0[row as usize - 1][column as usize - 1] == 0 {
@@ -41,22 +49,30 @@ impl Board {
           ) {
             let mut solutions = Solutions::None;
             let mut remaining = Self::expand_remaining(in_row & in_column & in_square);
-            remaining.shuffle(&mut rng);
+            let exhaustive = match rng {
+              Some(rng) => {
+                remaining.shuffle(rng);
+                false
+              }
+              None => true,
+            };
             for value in remaining {
-              self.0[row as usize - 1][column as usize - 1] = value;
-              match (&mut solutions, self.solve(exhaustive)) {
-                (_, Solutions::None) => (),
-                (Solutions::None, Solutions::One) => {
-                  solutions = Solutions::One;
-                  if !exhaustive {
-                    // Recursively solved with that value.
-                    return solutions;
+              if value != 0 {
+                self.0[row as usize - 1][column as usize - 1] = value;
+                match (&mut solutions, self.solve_recursive(rng)) {
+                  (_, Solutions::None) => (),
+                  (Solutions::None, Solutions::One) => {
+                    solutions = Solutions::One;
+                    if !exhaustive {
+                      // Recursively solved with that value.
+                      return solutions;
+                    }
                   }
-                }
-                (_, Solutions::One | Solutions::Multiple) => {
-                  // Put back the 0 value to restore the board to its original state.
-                  self.0[row as usize - 1][column as usize - 1] = 0;
-                  return Solutions::Multiple;
+                  (_, Solutions::One | Solutions::Multiple) => {
+                    // Put back the 0 value to restore the board to its original state.
+                    self.0[row as usize - 1][column as usize - 1] = 0;
+                    return Solutions::Multiple;
+                  }
                 }
               }
             }
@@ -75,49 +91,61 @@ impl Board {
     }
   }
 
-  fn expand_remaining(remaining: u16) -> Vec<u8> {
-    let mut result = Vec::new();
+  fn expand_remaining(remaining: u16) -> [u8; 9] {
+    let mut result = [0; 9];
+    let mut index = 0;
     for value in 1..=9 {
       if remaining & 0b1 << (value - 1) != 0 {
-        result.push(value);
+        result[index] = value;
+        index += 1;
       }
     }
     result
   }
 
-  pub fn remove_random(&mut self, max_count: usize) -> usize {
-    let mut choices = Vec::new();
+  pub fn remove_random(&mut self, max_count: u8) -> u8 {
+    let mut choices = [(0, 0); 81];
+    let mut index = 0;
     for row in 1..=9_u8 {
       let filled = self.expand_filled_row(row);
       for column in filled {
-        choices.push((row, column));
+        if column != 0 {
+          choices[index] = (row, column);
+          index += 1;
+        }
       }
     }
 
-    let mut count = 0;
     let mut rng = thread_rng();
     choices.shuffle(&mut rng);
+
+    let mut count = 0;
+    let mut rng = None;
     for (row, column) in choices {
-      let value = self.0[row as usize - 1][column as usize - 1];
-      self.0[row as usize - 1][column as usize - 1] = 0;
-      if let Solutions::One = self.solve(true) {
-        count += 1;
-        if count >= max_count {
-          break;
+      if row != 0 && column != 0 {
+        let value = self.0[row as usize - 1][column as usize - 1];
+        self.0[row as usize - 1][column as usize - 1] = 0;
+        if let Solutions::One = self.solve_recursive(&mut rng) {
+          count += 1;
+          if count >= max_count {
+            break;
+          }
+        } else {
+          self.0[row as usize - 1][column as usize - 1] = value;
         }
-      } else {
-        self.0[row as usize - 1][column as usize - 1] = value;
       }
     }
 
     count
   }
 
-  fn expand_filled_row(&self, row: u8) -> Vec<u8> {
-    let mut result = Vec::new();
+  fn expand_filled_row(&self, row: u8) -> [u8; 9] {
+    let mut result = [0; 9];
+    let mut index = 0;
     for column in 1..=9 {
       if self.0[row as usize - 1][column as usize - 1] != 0 {
-        result.push(column);
+        result[index] = column;
+        index += 1;
       }
     }
     result
