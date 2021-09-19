@@ -41,8 +41,8 @@
 
   td {
 	  border-style: inset;
-	  width: 1em;
-	  height: 1em;
+	  width: 2em;
+	  height: 2em;
   }
 
   h1 {
