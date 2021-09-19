@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
 use rand::prelude::*;
+
+extern crate serde;
 use serde::Serialize;
 
 #[derive(Debug)]
@@ -25,8 +27,8 @@ pub struct Board(pub [[u8; 9]; 9]);
 impl Board {
   pub fn solve(&mut self, exhaustive: bool) -> Solutions {
     let mut rng = thread_rng();
-    for row in 1..=9 as u8 {
-      for column in 1..=9 as u8 {
+    for row in 1..=9_u8 {
+      for column in 1..=9_u8 {
         if self.0[row as usize - 1][column as usize - 1] == 0 {
           if let (
             Check::Remaining(in_row),
@@ -83,26 +85,32 @@ impl Board {
     result
   }
 
-  pub fn remove_random(&mut self, rng: &mut ThreadRng) -> bool {
+  pub fn remove_random(&mut self, max_count: usize) -> usize {
     let mut choices = Vec::new();
-    for row in 1..=9 as u8 {
+    for row in 1..=9_u8 {
       let filled = self.expand_filled_row(row);
-      if let Some(column) = filled.choose(rng) {
-        choices.push((row, *column));
+      for column in filled {
+        choices.push((row, column));
       }
     }
 
-    choices.shuffle(rng);
+    let mut count = 0;
+    let mut rng = thread_rng();
+    choices.shuffle(&mut rng);
     for (row, column) in choices {
       let value = self.0[row as usize - 1][column as usize - 1];
       self.0[row as usize - 1][column as usize - 1] = 0;
       if let Solutions::One = self.solve(true) {
-        return true;
+        count += 1;
+        if count >= max_count {
+          break;
+        }
+      } else {
+        self.0[row as usize - 1][column as usize - 1] = value;
       }
-      self.0[row as usize - 1][column as usize - 1] = value;
     }
 
-    false
+    count
   }
 
   fn expand_filled_row(&self, row: u8) -> Vec<u8> {
@@ -115,8 +123,8 @@ impl Board {
     result
   }
 
-  pub fn check_all(&self) -> bool {
-    for i in 1..=9 as u8 {
+  fn check_all(&self) -> bool {
+    for i in 1..=9_u8 {
       if let Check::Duplicates = self.check_row(i) {
         return false;
       }
@@ -134,18 +142,17 @@ impl Board {
 
     true
   }
+
   pub fn check_row(&self, row: u8) -> Check {
-    if row < 1 || row > 9 {
-      Check::Remaining(MASK_ALL)
-    } else {
+    if (1..=9).contains(&row) {
       Self::check_slice(&self.0[row as usize - 1])
+    } else {
+      Check::Remaining(MASK_ALL)
     }
   }
 
   pub fn check_column(&self, column: u8) -> Check {
-    if column < 1 || column > 9 {
-      Check::Remaining(MASK_ALL)
-    } else {
+    if (1..=9).contains(&column) {
       Self::check_slice(&[
         self.0[0][column as usize - 1],
         self.0[1][column as usize - 1],
@@ -157,13 +164,13 @@ impl Board {
         self.0[7][column as usize - 1],
         self.0[8][column as usize - 1],
       ])
+    } else {
+      Check::Remaining(MASK_ALL)
     }
   }
 
   pub fn check_square(&self, row: u8, column: u8) -> Check {
-    if row < 1 || row > 9 || column < 1 || column > 9 {
-      Check::Remaining(MASK_ALL)
-    } else {
+    if (1..=9).contains(&row) && (1..=9).contains(&column) {
       let start_row = ((row - 1) / 3) * 3;
       let start_column = ((column - 1) / 3) * 3;
       Self::check_slice(&[
@@ -177,6 +184,8 @@ impl Board {
         self.0[start_row as usize + 2][start_column as usize + 1],
         self.0[start_row as usize + 2][start_column as usize + 2],
       ])
+    } else {
+      Check::Remaining(MASK_ALL)
     }
   }
 
@@ -184,7 +193,7 @@ impl Board {
     let mut values = 0;
     for value in slice {
       let mask = match value {
-        _ if *value > 0 && *value < 10 => (1 as u16) << (value - 1),
+        _ if (1..=9).contains(value) => 1_u16 << (value - 1),
         0 => 0,
         _ => unreachable!(),
       };
@@ -193,9 +202,7 @@ impl Board {
         return Check::Duplicates;
       }
 
-      if *value > 0 && *value < 10 {
-        values |= mask;
-      }
+      values |= mask;
     }
 
     match values ^ MASK_ALL {
@@ -206,14 +213,11 @@ impl Board {
 }
 
 fn display_value(value: u8) -> String {
-  format!(
-    "{}",
-    if value < 1 || value > 9 {
-      " ".to_string()
-    } else {
-      value.to_string()
-    }
-  )
+  if (1..=9).contains(&value) {
+    value.to_string()
+  } else {
+    " ".to_string()
+  }
 }
 
 impl Display for Board {
@@ -350,51 +354,5 @@ mod test {
       [0, 0, 0, 0, 0, 0, 0, 0, 0],
     ]);
     assert!(!board.check_all());
-  }
-
-  #[test]
-  fn generate_default() {
-    let mut board = Board::default();
-    assert!(matches!(board.solve(false), Solutions::One));
-    assert_ne!(board, Board::default());
-    assert!(board.check_all());
-  }
-
-  #[test]
-  fn multiple_default() {
-    let mut board = Board::default();
-    assert!(matches!(board.solve(true), Solutions::Multiple));
-    assert_eq!(board, Board::default());
-  }
-
-  #[test]
-  fn remove_one() {
-    let mut board = Board::default();
-    assert!(matches!(board.solve(false), Solutions::One));
-    let original = Board(board.0);
-    let mut rng = thread_rng();
-    assert!(board.remove_random(&mut rng));
-    assert_ne!(board, original);
-    assert!(matches!(board.solve(true), Solutions::One));
-  }
-
-  #[test]
-  fn remove_all() {
-    let mut board = Board::default();
-    assert!(matches!(board.solve(false), Solutions::One));
-    let mut removed = 0;
-    let mut rng = thread_rng();
-    loop {
-      let previous = Board(board.0);
-      if !board.remove_random(&mut rng) {
-        break;
-      }
-      assert_ne!(board, previous);
-      removed += 1;
-    }
-    assert!(removed > 1);
-    println!("After removing: {} Board: {}", removed, board);
-    assert!(matches!(board.solve(false), Solutions::One));
-    println!("Solution: {}", board);
   }
 }
