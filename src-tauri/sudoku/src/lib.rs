@@ -3,7 +3,7 @@ use std::fmt::Display;
 use rand::prelude::*;
 
 extern crate serde;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub enum Check {
@@ -21,7 +21,7 @@ pub enum Solutions {
 
 const MASK_ALL: u16 = 0b111111111;
 
-#[derive(Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board(pub [[u8; 9]; 9]);
 
 impl Board {
