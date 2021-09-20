@@ -27,6 +27,30 @@
         });
     }
   };
+
+  const cellStyle = (row: number, column: number): string => {
+    let styles = [];
+
+    switch (row % 3) {
+      case 0:
+        styles.push("solidTop");
+        break;
+      case 2:
+        styles.push("solidBottom");
+        break;
+    }
+
+    switch (column % 3) {
+      case 0:
+        styles.push("solidLeft");
+        break;
+      case 2:
+        styles.push("solidRight");
+        break;
+    }
+
+    return styles.join(" ");
+  };
 </script>
 
 <main>
@@ -42,8 +66,9 @@
       {#each $currentBoard as row, rowNumber}
         <tr>
           {#each row as cell, columnNumber}
-            <td on:click={() => onClickCell(rowNumber, columnNumber)}
-              >{cell || " "}</td
+            <td
+              on:click={() => onClickCell(rowNumber, columnNumber)}
+              class={cellStyle(rowNumber, columnNumber)}>{cell || " "}</td
             >
           {/each}
         </tr>
@@ -66,6 +91,22 @@
     border-style: inset;
     width: 2em;
     height: 2em;
+  }
+
+  td.solidTop {
+    border-top: solid;
+  }
+
+  td.solidBottom {
+    border-bottom: solid;
+  }
+
+  td.solidLeft {
+    border-left: solid;
+  }
+
+  td.solidRight {
+    border-right: solid;
   }
 
   h1 {
