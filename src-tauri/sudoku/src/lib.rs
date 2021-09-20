@@ -35,9 +35,9 @@ impl Board {
   }
 
   fn solve_recursive(&mut self, rng: &mut Option<ThreadRng>) -> Solutions {
-    for row in 1..=9_u8 {
-      for column in 1..=9_u8 {
-        if self.0[row as usize - 1][column as usize - 1] == 0 {
+    for row in 0..9_u8 {
+      for column in 0..9_u8 {
+        if self.0[row as usize][column as usize] == 0 {
           if let (
             Check::Remaining(in_row),
             Check::Remaining(in_column),
@@ -58,7 +58,7 @@ impl Board {
             };
             for value in remaining {
               if value != 0 {
-                self.0[row as usize - 1][column as usize - 1] = value;
+                self.0[row as usize][column as usize] = value;
                 match (&mut solutions, self.solve_recursive(rng)) {
                   (_, Solutions::None) => (),
                   (Solutions::None, Solutions::One) => {
@@ -70,7 +70,7 @@ impl Board {
                   }
                   (_, Solutions::One | Solutions::Multiple) => {
                     // Put back the 0 value to restore the board to its original state.
-                    self.0[row as usize - 1][column as usize - 1] = 0;
+                    self.0[row as usize][column as usize] = 0;
                     return Solutions::Multiple;
                   }
                 }
@@ -78,7 +78,7 @@ impl Board {
             }
 
             // Put back the 0 value so the caller can try its next value.
-            self.0[row as usize - 1][column as usize - 1] = 0;
+            self.0[row as usize][column as usize] = 0;
             return solutions;
           }
         }
@@ -104,15 +104,14 @@ impl Board {
   }
 
   pub fn remove_random(&mut self, max_count: u8) -> u8 {
-    let mut choices = [(0, 0); 81];
+    let mut choices = [None; 81];
     let mut index = 0;
-    for row in 1..=9_u8 {
+    for row in 0..9_u8 {
       let filled = self.expand_filled_row(row);
-      for column in filled {
-        if column != 0 {
-          choices[index] = (row, column);
-          index += 1;
-        }
+      for column in filled.iter().filter_map(|c| c.as_ref()) {
+        let column = *column;
+        choices[index] = Some((row, column));
+        index += 1;
       }
     }
 
@@ -121,30 +120,30 @@ impl Board {
 
     let mut count = 0;
     let mut rng = None;
-    for (row, column) in choices {
-      if row != 0 && column != 0 {
-        let value = self.0[row as usize - 1][column as usize - 1];
-        self.0[row as usize - 1][column as usize - 1] = 0;
-        if let Solutions::One = self.solve_recursive(&mut rng) {
-          count += 1;
-          if count >= max_count {
-            break;
-          }
-        } else {
-          self.0[row as usize - 1][column as usize - 1] = value;
+    for (row, column) in choices.iter().filter_map(|c| c.as_ref()) {
+      let row = *row as usize;
+      let column = *column as usize;
+      let value = self.0[row][column];
+      self.0[row][column] = 0;
+      if let Solutions::One = self.solve_recursive(&mut rng) {
+        count += 1;
+        if count >= max_count {
+          break;
         }
+      } else {
+        self.0[row][column] = value;
       }
     }
 
     count
   }
 
-  fn expand_filled_row(&self, row: u8) -> [u8; 9] {
-    let mut result = [0; 9];
+  fn expand_filled_row(&self, row: u8) -> [Option<u8>; 9] {
+    let mut result = [None; 9];
     let mut index = 0;
-    for column in 1..=9 {
-      if self.0[row as usize - 1][column as usize - 1] != 0 {
-        result[index] = column;
+    for column in 0..9 {
+      if self.0[row as usize][column as usize] != 0 {
+        result[index] = Some(column);
         index += 1;
       }
     }
@@ -152,7 +151,7 @@ impl Board {
   }
 
   fn check_all(&self) -> bool {
-    for i in 1..=9_u8 {
+    for i in 0..9_u8 {
       if let Check::Duplicates = self.check_row(i) {
         return false;
       }
@@ -161,8 +160,8 @@ impl Board {
         return false;
       }
 
-      let row = (((i - 1) / 3) * 3) + 2;
-      let column = (((i - 1) % 3) * 3) + 2;
+      let row = ((i / 3) * 3) + 1;
+      let column = ((i % 3) * 3) + 1;
       if let Check::Duplicates = self.check_square(row, column) {
         return false;
       }
@@ -172,25 +171,25 @@ impl Board {
   }
 
   pub fn check_row(&self, row: u8) -> Check {
-    if (1..=9).contains(&row) {
-      Self::check_slice(&self.0[row as usize - 1])
+    if (0..9).contains(&row) {
+      Self::check_slice(&self.0[row as usize])
     } else {
       Check::Remaining(MASK_ALL)
     }
   }
 
   pub fn check_column(&self, column: u8) -> Check {
-    if (1..=9).contains(&column) {
+    if (0..9).contains(&column) {
       Self::check_slice(&[
-        self.0[0][column as usize - 1],
-        self.0[1][column as usize - 1],
-        self.0[2][column as usize - 1],
-        self.0[3][column as usize - 1],
-        self.0[4][column as usize - 1],
-        self.0[5][column as usize - 1],
-        self.0[6][column as usize - 1],
-        self.0[7][column as usize - 1],
-        self.0[8][column as usize - 1],
+        self.0[0][column as usize],
+        self.0[1][column as usize],
+        self.0[2][column as usize],
+        self.0[3][column as usize],
+        self.0[4][column as usize],
+        self.0[5][column as usize],
+        self.0[6][column as usize],
+        self.0[7][column as usize],
+        self.0[8][column as usize],
       ])
     } else {
       Check::Remaining(MASK_ALL)
@@ -198,9 +197,9 @@ impl Board {
   }
 
   pub fn check_square(&self, row: u8, column: u8) -> Check {
-    if (1..=9).contains(&row) && (1..=9).contains(&column) {
-      let start_row = ((row - 1) / 3) * 3;
-      let start_column = ((column - 1) / 3) * 3;
+    if (0..9).contains(&row) && (0..9).contains(&column) {
+      let start_row = (row / 3) * 3;
+      let start_column = (column / 3) * 3;
       Self::check_slice(&[
         self.0[start_row as usize][start_column as usize],
         self.0[start_row as usize][start_column as usize + 1],

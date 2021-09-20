@@ -15,11 +15,13 @@
   let boardPromise = invoke("generate_board").then(updateBoard);
 
   const onClickCell = (row: number, column: number) => {
-    boardPromise = invoke("solve_value", {
-      board: $currentBoard,
-      row,
-      column,
-    }).then(updateBoard);
+    if (!$currentBoard[row][column]) {
+      boardPromise = invoke("solve_value", {
+        board: $currentBoard,
+        row,
+        column,
+      }).then(updateBoard);
+    }
   };
 </script>
 
@@ -33,10 +35,12 @@
     <span>Generating the board...</span>
   {:then board}
     <table>
-      {#each board as row, i}
+      {#each board as row, rowNumber}
         <tr>
-          {#each row as cell, j}
-            <td on:click={() => onClickCell(i + 1, j + 1)}>{cell || " "}</td>
+          {#each row as cell, columnNumber}
+            <td on:click={() => onClickCell(rowNumber, columnNumber)}
+              >{cell || " "}</td
+            >
           {/each}
         </tr>
       {/each}
