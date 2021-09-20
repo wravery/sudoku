@@ -4,7 +4,7 @@
 
   export let name: string;
 
-  const currentBoard = writable();
+  const currentBoard = writable<[[]]>();
 
   const updateBoard = (value: string): [[]] => {
     const board: [[]] = JSON.parse(value);
@@ -16,11 +16,15 @@
 
   const onClickCell = (row: number, column: number) => {
     if (!$currentBoard[row][column]) {
-      boardPromise = invoke("solve_value", {
+      invoke("solve_value", {
         board: $currentBoard,
         row,
         column,
-      }).then(updateBoard);
+      })
+        .then(updateBoard)
+        .catch((error) => {
+          boardPromise = Promise.reject(error);
+        });
     }
   };
 </script>
@@ -35,7 +39,7 @@
     <span>Generating the board...</span>
   {:then board}
     <table>
-      {#each board as row, rowNumber}
+      {#each $currentBoard as row, rowNumber}
         <tr>
           {#each row as cell, columnNumber}
             <td on:click={() => onClickCell(rowNumber, columnNumber)}
