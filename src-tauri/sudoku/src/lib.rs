@@ -38,47 +38,59 @@ impl Board {
     for row in 0..9_u8 {
       for column in 0..9_u8 {
         if self.0[row as usize][column as usize] == 0 {
-          if let (
-            Check::Remaining(in_row),
-            Check::Remaining(in_column),
-            Check::Remaining(in_square),
-          ) = (
-            self.check_row(row),
-            self.check_column(column),
-            self.check_square(row, column),
-          ) {
-            let mut solutions = Solutions::None;
-            let mut remaining = Self::expand_remaining(in_row & in_column & in_square);
-            let exhaustive = match rng {
-              Some(rng) => {
-                remaining.shuffle(rng);
-                false
-              }
-              None => true,
-            };
-            for value in remaining {
-              if value != 0 {
-                self.0[row as usize][column as usize] = value;
-                match (&mut solutions, self.solve_recursive(rng)) {
-                  (_, Solutions::None) => (),
-                  (Solutions::None, Solutions::One) => {
-                    solutions = Solutions::One;
-                    if !exhaustive {
-                      // Recursively solved with that value.
-                      return solutions;
+          let (mut in_row, mut in_column, mut in_square) = (None, None, None);
+          if let Check::Remaining(remaining) = self.check_row(row) {
+            if remaining != 0 {
+              in_row = Some(remaining);
+              if let Check::Remaining(remaining) = self.check_column(column) {
+                if remaining != 0 {
+                  in_column = Some(remaining);
+                  if let Check::Remaining(remaining) = self.check_square(row, column) {
+                    if remaining != 0 {
+                      in_square = Some(remaining);
                     }
-                  }
-                  (_, Solutions::One | Solutions::Multiple) => {
-                    // Put back the 0 value to restore the board to its original state.
-                    self.0[row as usize][column as usize] = 0;
-                    return Solutions::Multiple;
                   }
                 }
               }
             }
+          }
 
-            // Put back the 0 value so the caller can try its next value.
-            self.0[row as usize][column as usize] = 0;
+          if let (Some(in_row), Some(in_column), Some(in_square)) = (in_row, in_column, in_square) {
+            let mut solutions = Solutions::None;
+            let remaining = in_row & in_column & in_square;
+            if remaining != 0 {
+              let mut remaining = Self::expand_remaining(remaining);
+              let exhaustive = match rng {
+                Some(rng) => {
+                  remaining.shuffle(rng);
+                  false
+                }
+                None => true,
+              };
+              for value in remaining {
+                if value != 0 {
+                  self.0[row as usize][column as usize] = value;
+                  match (&mut solutions, self.solve_recursive(rng)) {
+                    (_, Solutions::None) => (),
+                    (Solutions::None, Solutions::One) => {
+                      solutions = Solutions::One;
+                      if !exhaustive {
+                        // Recursively solved with that value.
+                        return solutions;
+                      }
+                    }
+                    (_, Solutions::One | Solutions::Multiple) => {
+                      // Put back the 0 value to restore the board to its original state.
+                      self.0[row as usize][column as usize] = 0;
+                      return Solutions::Multiple;
+                    }
+                  }
+                }
+              }
+              // Put back the 0 value so the caller can try its next value.
+              self.0[row as usize][column as usize] = 0;
+            }
+
             return solutions;
           }
         }
