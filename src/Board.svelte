@@ -35,11 +35,11 @@
   let cells: HTMLDivElement[][] = [];
 
   for (let row = 0; row < 9; ++row) {
-      let rowCells = [];
-      for (let column = 0; column < 9; ++column) {
-          rowCells.push(null);
-      }
-      cells.push(rowCells);
+    let rowCells = [];
+    for (let column = 0; column < 9; ++column) {
+      rowCells.push(null);
+    }
+    cells.push(rowCells);
   }
 
   const onFocusCell = (row: number, column: number) => {
@@ -62,55 +62,71 @@
     }
 
     let handled = false;
+    let updateSelection = false;
     let { row, column } = $selected;
 
-    switch (e.key) {
-      case "ArrowLeft":
+    switch (e.code) {
+      case "Space": {
+        const cell = cells[row][column];
+        if (cell) {
+          onClickCell(cell, row, column);
+          handled = true;
+        }
+        break;
+      }
+
+      case "ArrowLeft": {
         while (--column >= 0) {
           if (!$current[row][column]) {
-            handled = true;
+            handled = updateSelection = true;
             break;
           }
         }
         break;
+      }
 
-      case "ArrowRight":
+      case "ArrowRight": {
         while (++column < 9) {
           if (!$current[row][column]) {
-            handled = true;
+            handled = updateSelection = true;
             break;
           }
         }
         break;
+      }
 
-      case "ArrowUp":
+      case "ArrowUp": {
         while (--row >= 0) {
           if (!$current[row][column]) {
-            handled = true;
+            handled = updateSelection = true;
             break;
           }
         }
         break;
+      }
 
-      case "ArrowDown":
+      case "ArrowDown": {
         while (++row < 9) {
           if (!$current[row][column]) {
-            handled = true;
+            handled = updateSelection = true;
             break;
           }
         }
         break;
+      }
     }
 
     if (!handled) {
       return;
     }
 
-    selected.set({ row, column });
+    if (updateSelection) {
+      selected.set({ row, column });
 
-    const cell = cells[row][column];
-    if (cell) {
-      cell.focus();
+      const cell = cells[row][column];
+      if (cell) {
+        cell.focus();
+      }
     }
 
     e.preventDefault();
