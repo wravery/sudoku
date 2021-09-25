@@ -17,8 +17,7 @@ fn multiple_default() {
 
 #[test]
 fn remove_one() {
-  let mut board = Board::default();
-  assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
+  let mut board = Board::new();
   let original = Board(board.0);
   assert_eq!(board.remove_random(1), 1);
   assert_ne!(board, original);
@@ -29,8 +28,7 @@ fn remove_one() {
 
 #[test]
 fn remove_all() {
-  let mut board = Board::default();
-  assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
+  let mut board = Board::new();
   let removed = board.remove_random(81);
   assert!((2..81).contains(&removed));
   println!("After removing: {} Board: {}", removed, board);

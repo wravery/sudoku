@@ -36,6 +36,19 @@ type Rng = ThreadRng;
 type Rng = StdRng;
 
 impl Board {
+  pub fn new() -> Board {
+    let mut board = Self::default();
+    for i in 0..9_u8 {
+      board.0[0][usize::from(i)] = i + 1;
+    }
+
+    let mut rng = Self::get_rng();
+    board.0[0].shuffle(&mut rng);
+    assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
+
+    board
+  }
+
   pub fn solve(&mut self, options: SolverOptions) -> Solutions {
     let (exhaustive, mut rng) = match options {
       SolverOptions::Random => (false, Some(Self::get_rng())),
