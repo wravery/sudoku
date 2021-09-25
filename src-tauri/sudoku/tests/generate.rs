@@ -1,36 +1,39 @@
-use sudoku::{Board, Solutions};
+use sudoku::{Board, Solutions, SolverOptions};
 
 #[test]
 fn generate_default() {
   let mut board = Board::default();
-  assert!(matches!(board.solve(false), Solutions::One));
+  assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
   assert_ne!(board, Board::default());
+  println!("Generated: {}", board);
 }
 
 #[test]
 fn multiple_default() {
   let mut board = Board::default();
-  assert!(matches!(board.solve(true), Solutions::Multiple));
+  assert!(matches!(board.solve(SolverOptions::Exhaustive), Solutions::Multiple));
   assert_eq!(board, Board::default());
 }
 
 #[test]
 fn remove_one() {
   let mut board = Board::default();
-  assert!(matches!(board.solve(false), Solutions::One));
+  assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
   let original = Board(board.0);
   assert_eq!(board.remove_random(1), 1);
   assert_ne!(board, original);
-  assert!(matches!(board.solve(true), Solutions::One));
+  println!("After removing: 1 Board: {}", board);
+  assert!(matches!(board.solve(SolverOptions::FailFast), Solutions::One));
+  println!("Solution: {}", board);
 }
 
 #[test]
 fn remove_all() {
   let mut board = Board::default();
-  assert!(matches!(board.solve(false), Solutions::One));
+  assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
   let removed = board.remove_random(81);
   assert!((2..81).contains(&removed));
   println!("After removing: {} Board: {}", removed, board);
-  assert!(matches!(board.solve(false), Solutions::One));
+  assert!(matches!(board.solve(SolverOptions::FailFast), Solutions::One));
   println!("Solution: {}", board);
 }

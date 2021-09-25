@@ -3,12 +3,12 @@
   windows_subsystem = "windows"
 )]
 
-use sudoku::{Board, Solutions};
+use sudoku::{Board, Solutions, SolverOptions};
 
 #[tauri::command]
 async fn generate_board() -> Result<String, String> {
   let mut board = Board::default();
-  board.solve(false);
+  board.solve(SolverOptions::Random);
   board.remove_random(81);
   Ok(serde_json::to_string(&board).map_err(|err| format!("JSON error: {}", err))?)
 }
@@ -17,7 +17,7 @@ async fn generate_board() -> Result<String, String> {
 async fn solve_value(board: Board, row: u8, column: u8) -> Result<String, String> {
   if (0..9).contains(&row) && (0..9).contains(&column) {
     let mut solution = Board(board.0);
-    match solution.solve(false) {
+    match solution.solve(SolverOptions::FailFast) {
       Solutions::One => {
         let value = solution.0[row as usize][column as usize];
         Ok(serde_json::to_string(&value).map_err(|err| format!("JSON error: {}", err))?)

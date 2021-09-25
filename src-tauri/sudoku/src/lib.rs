@@ -21,78 +21,62 @@ pub enum Solutions {
 
 const MASK_ALL: u16 = 0b111111111;
 
+pub enum SolverOptions {
+  Random,
+  FailFast,
+  Exhaustive,
+}
+
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board(pub [[u8; 9]; 9]);
 
 impl Board {
-  pub fn solve(&mut self, exhaustive: bool) -> Solutions {
-    let mut rng = match exhaustive {
-      false => Some(thread_rng()),
-      true => None,
+  pub fn solve(&mut self, options: SolverOptions) -> Solutions {
+    let (exhaustive, mut rng) = match options {
+      SolverOptions::Random => (false, Some(thread_rng())),
+      SolverOptions::FailFast => (false, None),
+      SolverOptions::Exhaustive => (true, None),
     };
 
-    self.solve_recursive(&mut rng)
+    self.solve_recursive(exhaustive, &mut rng)
   }
 
-  fn solve_recursive(&mut self, rng: &mut Option<ThreadRng>) -> Solutions {
+  fn solve_recursive(&mut self, exhaustive: bool, rng: &mut Option<ThreadRng>) -> Solutions {
     for row in 0..9_u8 {
       for column in 0..9_u8 {
-        if self.0[row as usize][column as usize] == 0 {
-          let (mut in_row, mut in_column, mut in_square) = (None, None, None);
-          if let Check::Remaining(remaining) = self.check_row(row) {
-            if remaining != 0 {
-              in_row = Some(remaining);
-              if let Check::Remaining(remaining) = self.check_column(column) {
-                if remaining != 0 {
-                  in_column = Some(remaining);
-                  if let Check::Remaining(remaining) = self.check_square(row, column) {
-                    if remaining != 0 {
-                      in_square = Some(remaining);
+        if self.0[usize::from(row)][usize::from(column)] == 0 {
+          let remaining = self.all_remaining(row, column);
+          let mut solutions = Solutions::None;
+          if remaining != 0 {
+            let mut remaining = Self::expand_remaining(remaining);
+            if let Some(rng) = rng {
+              remaining.shuffle(rng);
+            }
+            for value in remaining {
+              if value != 0 {
+                self.0[usize::from(row)][usize::from(column)] = value;
+                match (&mut solutions, self.solve_recursive(exhaustive, rng)) {
+                  (_, Solutions::None) => (),
+                  (Solutions::None, Solutions::One) => {
+                    solutions = Solutions::One;
+                    if !exhaustive {
+                      // Recursively solved with that value.
+                      return solutions;
                     }
+                  }
+                  (_, Solutions::One | Solutions::Multiple) => {
+                    // Put back the 0 value to restore the board to its original state.
+                    self.0[usize::from(row)][usize::from(column)] = 0;
+                    return Solutions::Multiple;
                   }
                 }
               }
             }
+            // Put back the 0 value so the caller can try its next value.
+            self.0[usize::from(row)][usize::from(column)] = 0;
           }
 
-          if let (Some(in_row), Some(in_column), Some(in_square)) = (in_row, in_column, in_square) {
-            let mut solutions = Solutions::None;
-            let remaining = in_row & in_column & in_square;
-            if remaining != 0 {
-              let mut remaining = Self::expand_remaining(remaining);
-              let exhaustive = match rng {
-                Some(rng) => {
-                  remaining.shuffle(rng);
-                  false
-                }
-                None => true,
-              };
-              for value in remaining {
-                if value != 0 {
-                  self.0[row as usize][column as usize] = value;
-                  match (&mut solutions, self.solve_recursive(rng)) {
-                    (_, Solutions::None) => (),
-                    (Solutions::None, Solutions::One) => {
-                      solutions = Solutions::One;
-                      if !exhaustive {
-                        // Recursively solved with that value.
-                        return solutions;
-                      }
-                    }
-                    (_, Solutions::One | Solutions::Multiple) => {
-                      // Put back the 0 value to restore the board to its original state.
-                      self.0[row as usize][column as usize] = 0;
-                      return Solutions::Multiple;
-                    }
-                  }
-                }
-              }
-              // Put back the 0 value so the caller can try its next value.
-              self.0[row as usize][column as usize] = 0;
-            }
-
-            return solutions;
-          }
+          return solutions;
         }
       }
     }
@@ -103,13 +87,39 @@ impl Board {
     }
   }
 
+  fn all_remaining(&self, row: u8, column: u8) -> u16 {
+    let (mut in_row, mut in_column, mut in_square) = (None, None, None);
+    if let Check::Remaining(remaining) = self.check_row(row) {
+      if remaining != 0 {
+        in_row = Some(remaining);
+        if let Check::Remaining(remaining) = self.check_column(column) {
+          if remaining != 0 {
+            in_column = Some(remaining);
+            if let Check::Remaining(remaining) = self.check_square(row, column) {
+              if remaining != 0 {
+                in_square = Some(remaining);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    match (in_row, in_column, in_square) {
+      (Some(in_row), Some(in_column), Some(in_square)) => (in_row & in_column & in_square),
+      _ => 0_u16,
+    }
+  }
+
   fn expand_remaining(remaining: u16) -> [u8; 9] {
     let mut result = [0; 9];
-    let mut index = 0;
-    for value in 1..=9 {
-      if remaining & 0b1 << (value - 1) != 0 {
-        result[index] = value;
-        index += 1;
+    if remaining != 0 {
+      let mut index = 0;
+      for value in 1..=9 {
+        if remaining & 0b1 << (value - 1) != 0 {
+          result[index] = value;
+          index += 1;
+        }
       }
     }
     result
@@ -133,17 +143,17 @@ impl Board {
     let mut count = 0;
     let mut rng = None;
     for (row, column) in choices.iter().filter_map(|c| c.as_ref()) {
-      let row = *row as usize;
-      let column = *column as usize;
-      let value = self.0[row][column];
-      self.0[row][column] = 0;
-      if let Solutions::One = self.solve_recursive(&mut rng) {
+      let test_row = usize::from(*row);
+      let test_column = usize::from(*column);
+      let value = self.0[test_row][test_column];
+      self.0[test_row][test_column] = 0;
+      if let Solutions::One = self.solve_recursive(true, &mut rng) {
         count += 1;
         if count >= max_count {
           break;
         }
       } else {
-        self.0[row][column] = value;
+        self.0[test_row][test_column] = value;
       }
     }
 
@@ -154,7 +164,7 @@ impl Board {
     let mut result = [None; 9];
     let mut index = 0;
     for column in 0..9 {
-      if self.0[row as usize][column as usize] != 0 {
+      if self.0[usize::from(row)][usize::from(column)] != 0 {
         result[index] = Some(column);
         index += 1;
       }
@@ -184,7 +194,7 @@ impl Board {
 
   pub fn check_row(&self, row: u8) -> Check {
     if (0..9).contains(&row) {
-      Self::check_slice(&self.0[row as usize])
+      Self::check_slice(&self.0[usize::from(row)])
     } else {
       Check::Remaining(MASK_ALL)
     }
@@ -193,15 +203,15 @@ impl Board {
   pub fn check_column(&self, column: u8) -> Check {
     if (0..9).contains(&column) {
       Self::check_slice(&[
-        self.0[0][column as usize],
-        self.0[1][column as usize],
-        self.0[2][column as usize],
-        self.0[3][column as usize],
-        self.0[4][column as usize],
-        self.0[5][column as usize],
-        self.0[6][column as usize],
-        self.0[7][column as usize],
-        self.0[8][column as usize],
+        self.0[0][usize::from(column)],
+        self.0[1][usize::from(column)],
+        self.0[2][usize::from(column)],
+        self.0[3][usize::from(column)],
+        self.0[4][usize::from(column)],
+        self.0[5][usize::from(column)],
+        self.0[6][usize::from(column)],
+        self.0[7][usize::from(column)],
+        self.0[8][usize::from(column)],
       ])
     } else {
       Check::Remaining(MASK_ALL)
@@ -213,15 +223,15 @@ impl Board {
       let start_row = (row / 3) * 3;
       let start_column = (column / 3) * 3;
       Self::check_slice(&[
-        self.0[start_row as usize][start_column as usize],
-        self.0[start_row as usize][start_column as usize + 1],
-        self.0[start_row as usize][start_column as usize + 2],
-        self.0[start_row as usize + 1][start_column as usize],
-        self.0[start_row as usize + 1][start_column as usize + 1],
-        self.0[start_row as usize + 1][start_column as usize + 2],
-        self.0[start_row as usize + 2][start_column as usize],
-        self.0[start_row as usize + 2][start_column as usize + 1],
-        self.0[start_row as usize + 2][start_column as usize + 2],
+        self.0[usize::from(start_row)][usize::from(start_column)],
+        self.0[usize::from(start_row)][usize::from(start_column) + 1],
+        self.0[usize::from(start_row)][usize::from(start_column) + 2],
+        self.0[usize::from(start_row) + 1][usize::from(start_column)],
+        self.0[usize::from(start_row) + 1][usize::from(start_column) + 1],
+        self.0[usize::from(start_row) + 1][usize::from(start_column) + 2],
+        self.0[usize::from(start_row) + 2][usize::from(start_column)],
+        self.0[usize::from(start_row) + 2][usize::from(start_column) + 1],
+        self.0[usize::from(start_row) + 2][usize::from(start_column) + 2],
       ])
     } else {
       Check::Remaining(MASK_ALL)
