@@ -30,18 +30,44 @@ pub enum SolverOptions {
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board(pub [[u8; 9]; 9]);
 
+#[cfg(any(test, bench))]
+type Rng = ThreadRng;
+#[cfg(not(any(test, bench)))]
+type Rng = StdRng;
+
 impl Board {
   pub fn solve(&mut self, options: SolverOptions) -> Solutions {
     let (exhaustive, mut rng) = match options {
-      SolverOptions::Random => (false, Some(thread_rng())),
+      SolverOptions::Random => (false, Some(Self::get_rng())),
       SolverOptions::FailFast => (false, None),
       SolverOptions::Exhaustive => (true, None),
     };
 
+    // let mut choices = [None; 81];
+    // let mut index = 0;
+    // for row in 0..9_u8 {
+    //   let filled = self.expand_filled_row(row);
+    //   for column in filled.iter().filter_map(|c| c.as_ref()) {
+    //     let column = *column;
+    //     choices[index] = Some((row, column));
+    //     index += 1;
+    //   }
+    // }
+
     self.solve_recursive(exhaustive, &mut rng)
   }
 
-  fn solve_recursive(&mut self, exhaustive: bool, rng: &mut Option<ThreadRng>) -> Solutions {
+  #[cfg(any(test, bench))]
+  fn get_rng() -> Rng {
+    thread_rng()
+  }
+
+  #[cfg(not(any(test, bench)))]
+  fn get_rng() -> Rng {
+    StdRng::seed_from_u64(0)
+  }
+
+  fn solve_recursive(&mut self, exhaustive: bool, rng: &mut Option<Rng>) -> Solutions {
     for row in 0..9_u8 {
       for column in 0..9_u8 {
         if self.0[usize::from(row)][usize::from(column)] == 0 {
@@ -88,27 +114,25 @@ impl Board {
   }
 
   fn all_remaining(&self, row: u8, column: u8) -> u16 {
-    let (mut in_row, mut in_column, mut in_square) = (None, None, None);
+    let mut all = MASK_ALL;
+
     if let Check::Remaining(remaining) = self.check_row(row) {
-      if remaining != 0 {
-        in_row = Some(remaining);
-        if let Check::Remaining(remaining) = self.check_column(column) {
-          if remaining != 0 {
-            in_column = Some(remaining);
-            if let Check::Remaining(remaining) = self.check_square(row, column) {
-              if remaining != 0 {
-                in_square = Some(remaining);
-              }
-            }
-          }
-        }
+      all &= remaining;
+    }
+
+    if all != 0 {
+      if let Check::Remaining(remaining) = self.check_column(column) {
+        all &= remaining;
       }
     }
 
-    match (in_row, in_column, in_square) {
-      (Some(in_row), Some(in_column), Some(in_square)) => (in_row & in_column & in_square),
-      _ => 0_u16,
+    if all != 0 {
+      if let Check::Remaining(remaining) = self.check_square(row, column) {
+        all &= remaining;
+      }
     }
+
+    all
   }
 
   fn expand_remaining(remaining: u16) -> [u8; 9] {
@@ -137,7 +161,7 @@ impl Board {
       }
     }
 
-    let mut rng = thread_rng();
+    let mut rng = Self::get_rng();
     choices.shuffle(&mut rng);
 
     let mut count = 0;
