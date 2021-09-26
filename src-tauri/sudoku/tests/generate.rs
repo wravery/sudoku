@@ -22,7 +22,7 @@ fn remove_one() {
   assert_eq!(board.remove_random(1), 1);
   assert_ne!(board, original);
   println!("After removing: 1 Board: {}", board);
-  assert!(matches!(board.solve(SolverOptions::FailFast), Solutions::One));
+  assert!(matches!(board.solve(SolverOptions::FirstOnly), Solutions::One));
   println!("Solution: {}", board);
 }
 
@@ -32,6 +32,6 @@ fn remove_all() {
   let removed = board.remove_random(81);
   assert!((2..81).contains(&removed));
   println!("After removing: {} Board: {}", removed, board);
-  assert!(matches!(board.solve(SolverOptions::FailFast), Solutions::One));
+  assert!(matches!(board.solve(SolverOptions::FirstOnly), Solutions::One));
   println!("Solution: {}", board);
 }

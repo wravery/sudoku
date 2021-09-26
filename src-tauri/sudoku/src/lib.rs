@@ -23,7 +23,7 @@ const MASK_ALL: u16 = 0b111111111;
 
 pub enum SolverOptions {
   Random,
-  FailFast,
+  FirstOnly,
   Exhaustive,
 }
 
@@ -52,7 +52,7 @@ impl Board {
   pub fn solve(&mut self, options: SolverOptions) -> Solutions {
     let (exhaustive, mut rng) = match options {
       SolverOptions::Random => (false, Some(Self::get_rng())),
-      SolverOptions::FailFast => (false, None),
+      SolverOptions::FirstOnly => (false, None),
       SolverOptions::Exhaustive => (true, None),
     };
 
