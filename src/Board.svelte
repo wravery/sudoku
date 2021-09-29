@@ -75,6 +75,116 @@
         break;
       }
 
+      case "Digit0": {
+        if ($current[row][column] !== 0) {
+          current.update((board) => {
+            board[row][column] = 0;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit1": {
+        if ($current[row][column] !== 1) {
+          current.update((board) => {
+            board[row][column] = 1;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit2": {
+        if ($current[row][column] !== 2) {
+          current.update((board) => {
+            board[row][column] = 2;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit3": {
+        if ($current[row][column] !== 3) {
+          current.update((board) => {
+            board[row][column] = 3;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit4": {
+        if ($current[row][column] !== 4) {
+          current.update((board) => {
+            board[row][column] = 4;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit5": {
+        if ($current[row][column] !== 5) {
+          current.update((board) => {
+            board[row][column] = 5;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit6": {
+        if ($current[row][column] !== 6) {
+          current.update((board) => {
+            board[row][column] = 6;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit7": {
+        if ($current[row][column] !== 7) {
+          current.update((board) => {
+            board[row][column] = 7;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit8": {
+        if ($current[row][column] !== 8) {
+          current.update((board) => {
+            board[row][column] = 8;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit9": {
+        if ($current[row][column] !== 9) {
+          current.update((board) => {
+            board[row][column] = 9;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
       case "ArrowLeft": {
         while (--column >= 0) {
           if (!$current[row][column]) {
