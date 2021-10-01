@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/tauri";
   import { current } from "./store";
-  import { writable } from "svelte/store";
+  import { derived, writable } from "svelte/store";
   import { fly } from "svelte/transition";
   import { createEventDispatcher } from "svelte";
 
@@ -32,6 +33,19 @@
   };
 
   const selected = writable<{ row: number; column: number } | null>();
+  const remainingValues = derived<typeof selected, Promise<number[]> | null>(
+    selected,
+    ($selected) => {
+      if (!$selected) {
+        return null;
+      }
+      return invoke("get_possible_values", {
+        board: $current,
+        row: $selected.row,
+        column: $selected.column,
+      }).then((values: string) => JSON.parse(values));
+    }
+  );
   let cells: HTMLDivElement[][] = [];
 
   for (let row = 0; row < 9; ++row) {
@@ -264,6 +278,11 @@
       {/each}
     </div>
   {/each}
+  {#await $remainingValues then values}
+    {#if values}
+      <div class="hint">{`Hint: ${values.join(", ")}`}</div>
+    {/if}
+  {/await}
 </section>
 
 <style>
@@ -276,6 +295,14 @@
     -webkit-user-select: none;
     -moz-user-select: none;
     cursor: default;
+  }
+
+  div.hint {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    font-style: italic;
   }
 
   div.row {
