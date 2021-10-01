@@ -1,31 +1,31 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use sudoku::Board;
+use sudoku::{Board, BoardTestExt};
 
 fn remove_all(c: &mut Criterion) {
-  let mut board = Board::new();
+  let mut board = Board::test_new();
   c.bench_function("remove all", |b| {
-    b.iter(|| board.remove_random(black_box(81)))
+    b.iter(|| board.test_remove_values(black_box(81)))
   });
 }
 
 fn remove_50(c: &mut Criterion) {
-  let mut board = Board::new();
+  let mut board = Board::test_new();
   c.bench_function("remove 50", |b| {
-    b.iter(|| board.remove_random(black_box(50)))
+    b.iter(|| board.test_remove_values(black_box(50)))
   });
 }
 
 fn remove_40(c: &mut Criterion) {
-  let mut board = Board::new();
+  let mut board = Board::test_new();
   c.bench_function("remove 40", |b| {
-    b.iter(|| board.remove_random(black_box(40)))
+    b.iter(|| board.test_remove_values(black_box(40)))
   });
 }
 
 fn remove_30(c: &mut Criterion) {
-  let mut board = Board::new();
+  let mut board = Board::test_new();
   c.bench_function("remove 30", |b| {
-    b.iter(|| board.remove_random(black_box(30)))
+    b.iter(|| board.test_remove_values(black_box(30)))
   });
 }
 

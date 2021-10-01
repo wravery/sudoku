@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/tauri";
   import { current } from "./store";
-  import { writable } from "svelte/store";
+  import { derived, writable } from "svelte/store";
   import { fly } from "svelte/transition";
   import { createEventDispatcher } from "svelte";
 
@@ -32,6 +33,19 @@
   };
 
   const selected = writable<{ row: number; column: number } | null>();
+  const remainingValues = derived<typeof selected, Promise<number[]> | null>(
+    selected,
+    ($selected) => {
+      if (!$selected) {
+        return null;
+      }
+      return invoke("get_possible_values", {
+        board: $current,
+        row: $selected.row,
+        column: $selected.column,
+      }).then((values: string) => JSON.parse(values));
+    }
+  );
   let cells: HTMLDivElement[][] = [];
 
   for (let row = 0; row < 9; ++row) {
@@ -70,6 +84,116 @@
         const cell = cells[row][column];
         if (cell) {
           onClickCell(cell, row, column);
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit0": {
+        if ($current[row][column] !== 0) {
+          current.update((board) => {
+            board[row][column] = 0;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit1": {
+        if ($current[row][column] !== 1) {
+          current.update((board) => {
+            board[row][column] = 1;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit2": {
+        if ($current[row][column] !== 2) {
+          current.update((board) => {
+            board[row][column] = 2;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit3": {
+        if ($current[row][column] !== 3) {
+          current.update((board) => {
+            board[row][column] = 3;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit4": {
+        if ($current[row][column] !== 4) {
+          current.update((board) => {
+            board[row][column] = 4;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit5": {
+        if ($current[row][column] !== 5) {
+          current.update((board) => {
+            board[row][column] = 5;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit6": {
+        if ($current[row][column] !== 6) {
+          current.update((board) => {
+            board[row][column] = 6;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit7": {
+        if ($current[row][column] !== 7) {
+          current.update((board) => {
+            board[row][column] = 7;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit8": {
+        if ($current[row][column] !== 8) {
+          current.update((board) => {
+            board[row][column] = 8;
+            return board;
+          });
+          handled = true;
+        }
+        break;
+      }
+
+      case "Digit9": {
+        if ($current[row][column] !== 9) {
+          current.update((board) => {
+            board[row][column] = 9;
+            return board;
+          });
           handled = true;
         }
         break;
@@ -168,6 +292,11 @@
       {/each}
     </div>
   {/each}
+  {#await $remainingValues then values}
+    {#if values}
+      <div class="hint">{`Hint: ${values.join(", ")}`}</div>
+    {/if}
+  {/await}
 </section>
 
 <style>
@@ -180,6 +309,14 @@
     -webkit-user-select: none;
     -moz-user-select: none;
     cursor: default;
+  }
+
+  div.hint {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    font-style: italic;
   }
 
   div.row {

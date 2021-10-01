@@ -7,9 +7,8 @@ use sudoku::{Board, Solutions, SolverOptions};
 
 #[tauri::command]
 async fn generate_board() -> Result<String, String> {
-  let mut board = Board::default();
-  board.solve(SolverOptions::Random);
-  board.remove_random(81);
+  let mut board = Board::new();
+  board.remove_values(81);
   Ok(serde_json::to_string(&board).map_err(|err| format!("JSON error: {}", err))?)
 }
 
@@ -33,9 +32,23 @@ async fn solve_value(board: Board, row: u8, column: u8) -> Result<String, String
   }
 }
 
+#[tauri::command]
+async fn get_possible_values(board: Board, row: u8, column: u8) -> Result<String, String> {
+  if (0..9).contains(&row) && (0..9).contains(&column) {
+    let values = board.get_all_remaining(row, column);
+    Ok(serde_json::to_string(&values).map_err(|err| format!("JSON error: {}", err))?)
+  } else {
+    Err(format!(
+      "Out of bounds: row: {} column: {}",
+      row + 1,
+      column + 1
+    ))
+  }
+}
+
 fn main() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![generate_board, solve_value])
+    .invoke_handler(tauri::generate_handler![generate_board, solve_value, get_possible_values])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
