@@ -21,66 +21,68 @@ pub enum Solutions {
 
 const MASK_ALL: u16 = 0b111111111;
 
-pub enum SolverOptions {
-  Random,
+pub enum SolverOptions<'a, R: RngCore> {
+  Random(&'a mut R),
   FirstOnly,
   Exhaustive,
+}
+
+pub trait BoardRng<R: RngCore> {
+  fn get_rng() -> R;
+}
+
+impl BoardRng<ThreadRng> for ThreadRng {
+  fn get_rng() -> ThreadRng {
+    thread_rng()
+  }
+}
+
+impl BoardRng<StdRng> for StdRng {
+  fn get_rng() -> StdRng {
+    StdRng::seed_from_u64(0)
+  }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board(pub [[u8; 9]; 9]);
 
-#[cfg(any(test, bench))]
-type Rng = ThreadRng;
-#[cfg(not(any(test, bench)))]
-type Rng = StdRng;
-
 impl Board {
   pub fn new() -> Board {
+    let mut rng = ThreadRng::get_rng();
+    Self::create(&mut rng)
+  }
+
+  fn create<R: RngCore + BoardRng<R>>(rng: &mut R) -> Board {
     let mut board = Self::default();
     for i in 0..9_u8 {
       board.0[0][usize::from(i)] = i + 1;
     }
 
-    let mut rng = Self::get_rng();
-    board.0[0].shuffle(&mut rng);
-    assert!(matches!(board.solve(SolverOptions::Random), Solutions::One));
+    board.0[0].shuffle(rng);
+    let mut rng = Some(rng);
+    assert!(matches!(
+      board.solve_recursive(false, &mut rng),
+      Solutions::One
+    ));
 
     board
   }
 
-  pub fn solve(&mut self, options: SolverOptions) -> Solutions {
+  pub fn solve(&mut self, options: SolverOptions<ThreadRng>) -> Solutions {
     let (exhaustive, mut rng) = match options {
-      SolverOptions::Random => (false, Some(Self::get_rng())),
+      SolverOptions::Random(rng) => (false, Some(rng)),
       SolverOptions::FirstOnly => (false, None),
       SolverOptions::Exhaustive => (true, None),
     };
 
-    // let mut choices = [None; 81];
-    // let mut index = 0;
-    // for row in 0..9_u8 {
-    //   let filled = self.expand_filled_row(row);
-    //   for column in filled.iter().filter_map(|c| c.as_ref()) {
-    //     let column = *column;
-    //     choices[index] = Some((row, column));
-    //     index += 1;
-    //   }
-    // }
-
     self.solve_recursive(exhaustive, &mut rng)
   }
 
-  #[cfg(any(test, bench))]
-  fn get_rng() -> Rng {
-    thread_rng()
-  }
-
-  #[cfg(not(any(test, bench)))]
-  fn get_rng() -> Rng {
-    StdRng::seed_from_u64(0)
-  }
-
-  fn solve_recursive(&mut self, exhaustive: bool, rng: &mut Option<Rng>) -> Solutions {
+  fn solve_recursive<R: RngCore>(
+    &mut self,
+    exhaustive: bool,
+    rng: &mut Option<&mut R>,
+  ) -> Solutions {
     for row in 0..9_u8 {
       for column in 0..9_u8 {
         if self.0[usize::from(row)][usize::from(column)] == 0 {
@@ -88,7 +90,7 @@ impl Board {
           let mut solutions = Solutions::None;
           if remaining != 0 {
             let mut remaining = Self::expand_remaining(remaining);
-            if let Some(rng) = rng {
+            if let Some(rng) = rng.as_deref_mut() {
               remaining.shuffle(rng);
             }
             for value in remaining {
@@ -162,7 +164,12 @@ impl Board {
     result
   }
 
-  pub fn remove_random(&mut self, max_count: u8) -> u8 {
+  pub fn remove_values(&mut self, max_count: u8) -> u8 {
+    let mut rng = ThreadRng::get_rng();
+    self.remove_random(&mut rng, max_count)
+  }
+
+  fn remove_random<R: RngCore + BoardRng<R>>(&mut self, rng: &mut R, max_count: u8) -> u8 {
     let mut choices = [None; 81];
     let mut index = 0;
     for row in 0..9_u8 {
@@ -174,11 +181,10 @@ impl Board {
       }
     }
 
-    let mut rng = Self::get_rng();
-    choices.shuffle(&mut rng);
+    choices.shuffle(rng);
 
     let mut count = 0;
-    let mut rng = None;
+    let mut rng: Option<&mut R> = None;
     for (row, column) in choices.iter().filter_map(|c| c.as_ref()) {
       let test_row = usize::from(*row);
       let test_column = usize::from(*column);
@@ -296,6 +302,16 @@ impl Board {
       remaining => Check::Remaining(remaining),
     }
   }
+
+  pub fn get_all_remaining(&self, row: u8, column: u8) -> Vec<u8> {
+    Self::expand_remaining(self.all_remaining(row, column))
+      .iter()
+      .filter_map(|v| match v {
+        1..=9 => Some(*v),
+        _ => None,
+      })
+      .collect()
+  }
 }
 
 fn display_value(value: u8) -> String {
@@ -331,6 +347,34 @@ impl Display for Board {
       }
     }
     Ok(())
+  }
+}
+
+pub trait BoardTestExt {
+  fn test_new() -> Board;
+  fn test_solve(&mut self, options: SolverOptions<StdRng>) -> Solutions;
+  fn test_remove_values(&mut self, max_count: u8) -> u8;
+}
+
+impl BoardTestExt for Board {
+  fn test_new() -> Board {
+    let mut rng = StdRng::get_rng();
+    Self::create(&mut rng)
+  }
+
+  fn test_solve(&mut self, options: SolverOptions<StdRng>) -> Solutions {
+    let (exhaustive, mut rng) = match options {
+      SolverOptions::Random(rng) => (false, Some(rng)),
+      SolverOptions::FirstOnly => (false, None),
+      SolverOptions::Exhaustive => (true, None),
+    };
+
+    self.solve_recursive(exhaustive, &mut rng)
+  }
+
+  fn test_remove_values(&mut self, max_count: u8) -> u8 {
+    let mut rng = StdRng::get_rng();
+    self.remove_random(&mut rng, max_count)
   }
 }
 
