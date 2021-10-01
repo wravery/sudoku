@@ -117,6 +117,20 @@
     }
 
     if (!handled) {
+      const matches = e.code.match(/^Digit([0-9])$/);
+      if (matches?.length === 2) {
+        const digit = parseInt(matches[1]);
+        if (digit >= 0 && digit <= 9) {
+          current.update((board) => {
+            board[row][column] = digit;
+            return board;
+          });
+        }
+        handled = true;
+      }
+    }
+
+    if (!handled) {
       return;
     }
 
@@ -182,6 +196,10 @@
     align-items: center;
     justify-content: center;
     border: solid 1px;
+  }
+
+  div.cell:focus {
+    outline: none;
   }
 
   div.cell:hover:empty {
