@@ -3,9 +3,8 @@
   import { current } from "./store";
   import Board from "./Board.svelte";
 
-  let boardPromise = invoke("generate_board").then((value: string) => {
-    const board: number[][] = JSON.parse(value);
-    current.set(board);
+  let boardPromise = invoke("generate_board").then((value: number[][]) => {
+    current.set(value);
   });
 
   const onClickCell = (event: CustomEvent<{ row: number; column: number }>) => {
@@ -16,9 +15,9 @@
         row,
         column,
       })
-        .then((value: string) => {
+        .then((value: number) => {
           current.update((board) => {
-            board[row][column] = JSON.parse(value);
+            board[row][column] = value;
             return board;
           });
         })

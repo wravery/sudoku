@@ -39,11 +39,11 @@
       if (!$selected) {
         return null;
       }
-      return invoke("get_possible_values", {
+      return invoke<number[]>("get_possible_values", {
         board: $current,
         row: $selected.row,
         column: $selected.column,
-      }).then((values: string) => JSON.parse(values));
+      });
     }
   );
   let cells: HTMLDivElement[][] = [];

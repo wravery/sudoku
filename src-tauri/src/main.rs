@@ -6,20 +6,19 @@
 use sudoku::{Board, Solutions, SolverOptions};
 
 #[tauri::command]
-async fn generate_board() -> Result<String, String> {
+async fn generate_board() -> Result<Board, String> {
   let mut board = Board::new();
   board.remove_values(81);
-  Ok(serde_json::to_string(&board).map_err(|err| format!("JSON error: {}", err))?)
+  Ok(board)
 }
 
 #[tauri::command]
-async fn solve_value(board: Board, row: u8, column: u8) -> Result<String, String> {
+async fn solve_value(board: Board, row: u8, column: u8) -> Result<u8, String> {
   if (0..9).contains(&row) && (0..9).contains(&column) {
     let mut solution = Board(board.0);
     match solution.solve(SolverOptions::FirstOnly) {
       Solutions::One => {
-        let value = solution.0[row as usize][column as usize];
-        Ok(serde_json::to_string(&value).map_err(|err| format!("JSON error: {}", err))?)
+        Ok(solution.0[row as usize][column as usize])
       }
       solution => Err(format!("Solver error: {:?}", solution)),
     }
@@ -33,10 +32,9 @@ async fn solve_value(board: Board, row: u8, column: u8) -> Result<String, String
 }
 
 #[tauri::command]
-async fn get_possible_values(board: Board, row: u8, column: u8) -> Result<String, String> {
+async fn get_possible_values(board: Board, row: u8, column: u8) -> Result<Vec<u8>, String> {
   if (0..9).contains(&row) && (0..9).contains(&column) {
-    let values = board.get_all_remaining(row, column);
-    Ok(serde_json::to_string(&values).map_err(|err| format!("JSON error: {}", err))?)
+    Ok(board.get_all_remaining(row, column))
   } else {
     Err(format!(
       "Out of bounds: row: {} column: {}",
