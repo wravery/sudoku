@@ -170,7 +170,7 @@
           class={computeStyle(rowNumber, columnNumber)}
           class:selected={$selected &&
             $selected.row === rowNumber &&
-            $selected.column == columnNumber}
+            $selected.column === columnNumber}
           on:click={(e) => onClickCell(e.target, rowNumber, columnNumber)}
           on:focus={() => onFocusCell(rowNumber, columnNumber)}
           tabindex={cell ? -1 : 0}
