@@ -1,8 +1,14 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/tauri";
-  import { current } from "./store";
-  import { derived, writable } from "svelte/store";
-  import { fly } from "svelte/transition";
+  import {
+    current,
+    selected,
+    remainingValues,
+    cells,
+    notes,
+    showHints,
+    takingNotes,
+  } from "./store";
+  import { fade, fly } from "svelte/transition";
   import { createEventDispatcher } from "svelte";
 
   const dispatch =
@@ -32,30 +38,6 @@
     return styles.join(" ");
   };
 
-  const selected = writable<{ row: number; column: number } | null>();
-  const remainingValues = derived<typeof selected, Promise<number[]> | null>(
-    selected,
-    ($selected) => {
-      if (!$selected) {
-        return null;
-      }
-      return invoke<number[]>("get_possible_values", {
-        board: $current,
-        row: $selected.row,
-        column: $selected.column,
-      });
-    }
-  );
-  let cells: HTMLDivElement[][] = [];
-
-  for (let row = 0; row < 9; ++row) {
-    let rowCells = [];
-    for (let column = 0; column < 9; ++column) {
-      rowCells.push(null);
-    }
-    cells.push(rowCells);
-  }
-
   const onFocusCell = (row: number, column: number) => {
     if (!$current[row][column]) {
       selected.set({ row, column });
@@ -69,124 +51,51 @@
       dispatch("clickCell", { row, column });
     }
   };
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (!$selected) {
-      return;
-    }
-
-    let handled = false;
-    let updateSelection = false;
-    let { row, column } = $selected;
-
-    switch (e.code) {
-      case "Space": {
-        const cell = cells[row][column];
-        if (cell) {
-          onClickCell(cell, row, column);
-          handled = true;
-        }
-        break;
-      }
-
-      case "ArrowLeft": {
-        while (--column >= 0) {
-          if (!$current[row][column]) {
-            handled = updateSelection = true;
-            break;
-          }
-        }
-        break;
-      }
-
-      case "ArrowRight": {
-        while (++column < 9) {
-          if (!$current[row][column]) {
-            handled = updateSelection = true;
-            break;
-          }
-        }
-        break;
-      }
-
-      case "ArrowUp": {
-        while (--row >= 0) {
-          if (!$current[row][column]) {
-            handled = updateSelection = true;
-            break;
-          }
-        }
-        break;
-      }
-
-      case "ArrowDown": {
-        while (++row < 9) {
-          if (!$current[row][column]) {
-            handled = updateSelection = true;
-            break;
-          }
-        }
-        break;
-      }
-    }
-
-    if (!handled) {
-      const matches = e.code.match(/^Digit([0-9])$/);
-      if (matches?.length === 2) {
-        const digit = parseInt(matches[1]);
-        if (digit >= 0 && digit <= 9) {
-          current.update((board) => {
-            board[row][column] = digit;
-            return board;
-          });
-        }
-        handled = true;
-      }
-    }
-
-    if (!handled) {
-      return;
-    }
-
-    if (updateSelection) {
-      selected.set({ row, column });
-
-      const cell = cells[row][column];
-      if (cell) {
-        cell.focus();
-      }
-    }
-
-    e.preventDefault();
-  };
 </script>
 
-<section transition:fly={{ y: 500 }} on:keydown={onKeyDown}>
+<section transition:fly={{ y: 500 }}>
   {#each $current as rowCells, rowNumber (rowNumber)}
     <div class="row">
       {#each rowCells as cell, columnNumber (rowNumber * 9 + columnNumber)}
         <div
-          bind:this={cells[rowNumber][columnNumber]}
+          bind:this={$cells[rowNumber][columnNumber]}
           class={computeStyle(rowNumber, columnNumber)}
           class:selected={$selected &&
             $selected.row === rowNumber &&
             $selected.column === columnNumber}
+          class:empty={!cell}
           on:click={(e) => onClickCell(e.target, rowNumber, columnNumber)}
           on:focus={() => onFocusCell(rowNumber, columnNumber)}
           tabindex={cell ? -1 : 0}
         >
           {#if cell}
-            <span transition:fly={{ y: -10 }}>{cell}</span>
+            <span in:fly={{ y: -10 }}>{cell}</span>
+          {:else}
+            <div class="cellNotes">
+              {#each $notes[rowNumber][columnNumber] as notesRow, noteRowNumber (noteRowNumber)}
+                <div class="noteRow">
+                  {#each notesRow as note, noteColumnNumber (noteRowNumber * 9 + noteColumnNumber)}
+                    <div class="noteCell">
+                      {#if note}
+                        {note}
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {/each}
+            </div>
           {/if}
         </div>
       {/each}
     </div>
   {/each}
-  {#await $remainingValues then values}
-    {#if values}
-      <div class="hint">{`Hint: ${values.join(", ")}`}</div>
-    {/if}
-  {/await}
+  {#if $showHints}
+    {#await $remainingValues then values}
+      {#if values}
+        <div class="hint" in:fade>{`Hint: ${values.join(", ")}`}</div>
+      {/if}
+    {/await}
+  {/if}
 </section>
 
 <style>
@@ -229,16 +138,38 @@
     outline: none;
   }
 
-  div.cell:hover:empty {
+  div.cell.empty:hover {
     background-color: beige;
   }
 
-  div.cell:active:empty {
+  div.cell.empty:active {
     background-color: bisque;
   }
 
   div.cell.selected {
     background-color: azure;
+  }
+
+  div.cellNotes {
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    width: 2em;
+    height: 2em;
+  }
+
+  div.noteRow {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    width: 2em;
+  }
+
+  div.noteCell {
+    font-size: xx-small;
+    width: 1em;
+    height: 1em;
   }
 
   div.solidTop {

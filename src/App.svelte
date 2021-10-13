@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/tauri";
-  import { current } from "./store";
+  import { keyboardHandler } from "./keyboard";
+  import { current, takingNotes, showHints } from "./store";
   import Board from "./Board.svelte";
 
   let boardPromise = invoke("generate_board").then((value: number[][]) => {
@@ -28,8 +29,28 @@
   };
 </script>
 
+<svelte:window on:keydown={keyboardHandler} />
+
 <main>
   <h1>Sudoku!</h1>
+  <div class="options">
+    <input
+      type="checkbox"
+      bind:checked={$takingNotes}
+      id="takingNotesCheckbox"
+      tabindex="-1"
+    />
+    <label for="takingNotesCheckBox"
+      ><span class="hotkey">N</span>ote Taking</label
+    >
+    <input
+      type="checkbox"
+      bind:checked={$showHints}
+      id="showHintCheckbox"
+      tabindex="-1"
+    />
+    <label for="showHintCheckbox">Show <span class="hotkey">H</span>ints</label>
+  </div>
   {#await boardPromise}
     <span>Generating the board...</span>
   {:then}
@@ -53,6 +74,23 @@
     text-transform: uppercase;
     font-size: 4em;
     font-weight: 100;
+  }
+
+  div.options {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+  }
+
+  span.hotkey {
+    text-decoration: underline;
+  }
+
+  input {
+    border: unset;
+    padding: unset;
+    margin: 0.5em;
   }
 
   @media (min-width: 640px) {
