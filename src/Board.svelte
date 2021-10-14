@@ -6,7 +6,6 @@
     cells,
     notes,
     showHints,
-    takingNotes,
   } from "./store";
   import { fade, fly } from "svelte/transition";
   import { createEventDispatcher } from "svelte";
@@ -53,7 +52,7 @@
   };
 </script>
 
-<section transition:fly={{ y: 500 }}>
+<section in:fly={{ y: 500 }}>
   {#each $current as rowCells, rowNumber (rowNumber)}
     <div class="row">
       {#each rowCells as cell, columnNumber (rowNumber * 9 + columnNumber)}

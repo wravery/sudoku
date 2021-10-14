@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { current, takingNotes, showHints } from "./store";
+  import { takingNotes, showHints } from "./store";
+  import { createEventDispatcher } from "svelte";
+
+  const dispatch = createEventDispatcher<{ reload: never }>();
+  const reload = () => dispatch("reload");
 </script>
 
 <div class="options">
@@ -19,6 +23,7 @@
     tabindex="-1"
   />
   <label for="showHintCheckbox">Show <span class="hotkey">H</span>ints</label>
+  <button on:click={reload}>New Game</button>
 </div>
 
 <style>
@@ -37,5 +42,12 @@
     border: unset;
     padding: unset;
     margin: 0.5em;
+  }
+
+  button {
+    margin: 0 0 0 0.5em;
+    border-radius: 4px;
+    background-color: tomato;
+    color: white;
   }
 </style>

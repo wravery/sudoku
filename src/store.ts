@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { derived, writable } from "svelte/store";
 
-export const emptyBoard: number[][] = [
+export const selected = writable<{ row: number; column: number }>();
+
+const emptyBoard = () => [
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -13,8 +15,7 @@ export const emptyBoard: number[][] = [
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
 ];
 
-export const current = writable(emptyBoard);
-export const selected = writable<{ row: number; column: number }>();
+export const current = writable(emptyBoard());
 export const remainingValues = derived<
   [typeof selected, typeof current],
   Promise<number[]> | null
@@ -29,7 +30,7 @@ export const remainingValues = derived<
   });
 });
 
-export const emptyNotes: number[][][][] = [
+const emptyNotes = () => [
   [
     [
       [0, 0, 0],
@@ -455,12 +456,12 @@ export const emptyNotes: number[][][][] = [
   ],
 ];
 
-export const notes = writable(emptyNotes);
+export const notes = writable(emptyNotes());
 
 export const takingNotes = writable(false);
 export const showHints = writable(false);
 
-export const emptyCells: HTMLDivElement[][] = [
+const emptyCells = (): HTMLDivElement[][] => [
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null, null],
@@ -472,4 +473,11 @@ export const emptyCells: HTMLDivElement[][] = [
   [null, null, null, null, null, null, null, null, null],
 ];
 
-export const cells = writable(emptyCells);
+export const cells = writable(emptyCells());
+
+export const onNewGame = () => {
+  selected.set(null);
+  current.set(emptyBoard());
+  notes.set(emptyNotes());
+  cells.set(emptyCells());
+};

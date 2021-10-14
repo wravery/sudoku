@@ -1,13 +1,12 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/tauri";
+  import { onMount } from "svelte";
   import { keyboardHandler } from "./keyboard";
-  import { current, takingNotes, showHints } from "./store";
+  import { current, onNewGame } from "./store";
   import Board from "./Board.svelte";
   import Options from "./Options.svelte";
 
-  let boardPromise = invoke("generate_board").then((value: number[][]) => {
-    current.set(value);
-  });
+  let boardPromise: Promise<void>;
 
   const onClickCell = (event: CustomEvent<{ row: number; column: number }>) => {
     const { row, column } = event.detail;
@@ -28,13 +27,22 @@
         });
     }
   };
+
+  const onReload = () => {
+    onNewGame();
+    boardPromise = invoke("generate_board").then((value: number[][]) => {
+      current.set(value);
+    });
+  };
+
+  onMount(onReload);
 </script>
 
 <svelte:window on:keydown={keyboardHandler} />
 
 <main>
   <h1>Sudoku!</h1>
-  <Options />
+  <Options on:reload={onReload} />
   {#await boardPromise}
     <span>Generating the board...</span>
   {:then}
