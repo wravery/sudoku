@@ -2878,6 +2878,7 @@ name = "sudoku"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "futures",
  "rand 0.8.4",
  "serde",
 ]

@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use futures::{executor::block_on, future::BoxFuture, prelude::*};
 use rand::prelude::*;
 
 extern crate serde;
@@ -21,8 +22,9 @@ pub enum Solutions {
 
 const MASK_ALL: u16 = 0b111111111;
 
-pub enum SolverOptions<'a, R: RngCore> {
-  Random(&'a mut R),
+#[derive(Clone)]
+pub enum SolverOptions {
+  Random,
   FirstOnly,
   Exhaustive,
 }
@@ -47,85 +49,89 @@ impl BoardRng<StdRng> for StdRng {
 pub struct Board(pub [[u8; 9]; 9]);
 
 impl Board {
-  pub fn new() -> Board {
-    let mut rng = ThreadRng::get_rng();
-    Self::create(&mut rng)
+  pub async fn new() -> Board {
+    Self::create::<ThreadRng>().await
   }
 
-  fn create<R: RngCore + BoardRng<R>>(rng: &mut R) -> Board {
+  async fn create<R: RngCore + BoardRng<R>>() -> Board {
     let mut board = Self::default();
     for i in 0..9_u8 {
       board.0[0][usize::from(i)] = i + 1;
     }
 
-    board.0[0].shuffle(rng);
-    let mut rng = Some(rng);
-    assert!(matches!(
-      board.solve_recursive(false, &mut rng),
-      Solutions::One
-    ));
+    {
+      let mut rng = R::get_rng();
+      board.0[0].shuffle(&mut rng);
+    }
+
+    let (solutions, board) = board.solve_recursive::<R>(SolverOptions::Random).await;
+    assert!(matches!(solutions, Solutions::One));
 
     board
   }
 
-  pub fn solve(&mut self, options: SolverOptions<ThreadRng>) -> Solutions {
-    let (exhaustive, mut rng) = match options {
-      SolverOptions::Random(rng) => (false, Some(rng)),
-      SolverOptions::FirstOnly => (false, None),
-      SolverOptions::Exhaustive => (true, None),
-    };
-
-    self.solve_recursive(exhaustive, &mut rng)
+  pub async fn solve(&mut self, options: SolverOptions) -> Solutions {
+    let (solutions, board) = Board(self.0).solve_recursive::<ThreadRng>(options).await;
+    self.0 = board.0;
+    solutions
   }
 
-  fn solve_recursive<R: RngCore>(
-    &mut self,
-    exhaustive: bool,
-    rng: &mut Option<&mut R>,
-  ) -> Solutions {
-    for row in 0..9_u8 {
-      for column in 0..9_u8 {
-        if self.0[usize::from(row)][usize::from(column)] == 0 {
-          let remaining = self.all_remaining(row, column);
-          let mut solutions = Solutions::None;
-          if remaining != 0 {
-            let mut remaining = Self::expand_remaining(remaining);
-            if let Some(rng) = rng.as_deref_mut() {
-              remaining.shuffle(rng);
-            }
-            for value in remaining {
-              if value != 0 {
-                self.0[usize::from(row)][usize::from(column)] = value;
-                match (&mut solutions, self.solve_recursive(exhaustive, rng)) {
-                  (_, Solutions::None) => (),
-                  (Solutions::None, Solutions::One) => {
-                    solutions = Solutions::One;
-                    if !exhaustive {
-                      // Recursively solved with that value.
-                      return solutions;
+  fn solve_recursive<'a, R: RngCore + BoardRng<R>>(
+    self,
+    options: SolverOptions,
+  ) -> BoxFuture<'a, (Solutions, Board)> {
+    async move {
+      for row in 0..9_u8 {
+        for column in 0..9_u8 {
+          if self.0[usize::from(row)][usize::from(column)] == 0 {
+            let remaining = self.all_remaining(row, column);
+            let mut solutions = Solutions::None;
+            if remaining != 0 {
+              let mut remaining = Self::expand_remaining(remaining);
+              if let SolverOptions::Random = options {
+                let mut rng = R::get_rng();
+                remaining.shuffle(&mut rng);
+              }
+              for value in remaining {
+                if value != 0 {
+                  let test_result = {
+                    let mut test_board = Board(self.0);
+                    test_board.0[usize::from(row)][usize::from(column)] = value;
+                    test_board.solve_recursive::<R>(options.clone())
+                  };
+                  match (&mut solutions, test_result.await) {
+                    (_, (Solutions::None, _)) => (),
+                    (Solutions::None, (Solutions::One, board)) => {
+                      solutions = Solutions::One;
+                      match options {
+                        SolverOptions::Exhaustive => (),
+                        _ => {
+                          // Recursively solved with that value.
+                          return (solutions, board);
+                        }
+                      };
                     }
-                  }
-                  (_, Solutions::One | Solutions::Multiple) => {
-                    // Put back the 0 value to restore the board to its original state.
-                    self.0[usize::from(row)][usize::from(column)] = 0;
-                    return Solutions::Multiple;
+                    (_, (Solutions::One | Solutions::Multiple, _)) => {
+                      // Put back the 0 value to restore the board to its original state.
+                      return (Solutions::Multiple, self);
+                    }
                   }
                 }
               }
             }
-            // Put back the 0 value so the caller can try its next value.
-            self.0[usize::from(row)][usize::from(column)] = 0;
-          }
 
-          return solutions;
+            // Put back the 0 value so the caller can try its next value.
+            return (solutions, self);
+          }
         }
       }
+      // No more uninitialized values, make sure the initial state was valid.
+      match self.check_all() {
+        true => (Solutions::One, self),
+        false => (Solutions::None, self),
+      }
     }
-    // No more uninitialized values, make sure the initial state was valid.
-    match self.check_all() {
-      true => Solutions::One,
-      false => Solutions::None,
-    }
+    .boxed()
   }
 
   fn all_remaining(&self, row: u8, column: u8) -> u16 {
@@ -164,12 +170,11 @@ impl Board {
     result
   }
 
-  pub fn remove_values(&mut self, max_count: u8) -> u8 {
-    let mut rng = ThreadRng::get_rng();
-    self.remove_random(&mut rng, max_count)
+  pub async fn remove_values(&mut self, max_count: u8) -> u8 {
+    self.remove_random::<ThreadRng>(max_count).await
   }
 
-  fn remove_random<R: RngCore + BoardRng<R>>(&mut self, rng: &mut R, max_count: u8) -> u8 {
+  async fn remove_random<R: RngCore + BoardRng<R>>(&mut self, max_count: u8) -> u8 {
     let mut choices = [None; 81];
     let mut index = 0;
     for row in 0..9_u8 {
@@ -181,22 +186,26 @@ impl Board {
       }
     }
 
-    choices.shuffle(rng);
+    {
+      let mut rng = R::get_rng();
+      choices.shuffle(&mut rng);
+    }
 
     let mut count = 0;
-    let mut rng: Option<&mut R> = None;
     for (row, column) in choices.iter().filter_map(|c| c.as_ref()) {
       let test_row = usize::from(*row);
       let test_column = usize::from(*column);
-      let value = self.0[test_row][test_column];
-      self.0[test_row][test_column] = 0;
-      if let Solutions::One = self.solve_recursive(true, &mut rng) {
+      let mut test_board = Board(self.0);
+      test_board.0[test_row][test_column] = 0;
+      if let (Solutions::One, board) = test_board
+        .solve_recursive::<R>(SolverOptions::Exhaustive)
+        .await
+      {
+        self.0 = board.0;
         count += 1;
         if count >= max_count {
           break;
         }
-      } else {
-        self.0[test_row][test_column] = value;
       }
     }
 
@@ -352,29 +361,23 @@ impl Display for Board {
 
 pub trait BoardTestExt {
   fn test_new() -> Board;
-  fn test_solve(&mut self, options: SolverOptions<StdRng>) -> Solutions;
+  fn test_solve(&mut self, options: SolverOptions) -> Solutions;
   fn test_remove_values(&mut self, max_count: u8) -> u8;
 }
 
 impl BoardTestExt for Board {
   fn test_new() -> Board {
-    let mut rng = StdRng::get_rng();
-    Self::create(&mut rng)
+    block_on(Self::create::<StdRng>())
   }
 
-  fn test_solve(&mut self, options: SolverOptions<StdRng>) -> Solutions {
-    let (exhaustive, mut rng) = match options {
-      SolverOptions::Random(rng) => (false, Some(rng)),
-      SolverOptions::FirstOnly => (false, None),
-      SolverOptions::Exhaustive => (true, None),
-    };
-
-    self.solve_recursive(exhaustive, &mut rng)
+  fn test_solve(&mut self, options: SolverOptions) -> Solutions {
+    let (solutions, board) = block_on(Board(self.0).solve_recursive::<StdRng>(options));
+    self.0 = board.0;
+    solutions
   }
 
   fn test_remove_values(&mut self, max_count: u8) -> u8 {
-    let mut rng = StdRng::get_rng();
-    self.remove_random(&mut rng, max_count)
+    block_on(self.remove_random::<StdRng>(max_count))
   }
 }
 

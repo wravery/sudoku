@@ -7,8 +7,8 @@ use sudoku::{Board, Solutions, SolverOptions};
 
 #[tauri::command]
 async fn generate_board() -> Result<Board, String> {
-  let mut board = Board::new();
-  board.remove_values(81);
+  let mut board = Board::new().await;
+  board.remove_values(81).await;
   Ok(board)
 }
 
@@ -16,7 +16,7 @@ async fn generate_board() -> Result<Board, String> {
 async fn solve_value(board: Board, row: u8, column: u8) -> Result<u8, String> {
   if (0..9).contains(&row) && (0..9).contains(&column) {
     let mut solution = Board(board.0);
-    match solution.solve(SolverOptions::FirstOnly) {
+    match solution.solve(SolverOptions::FirstOnly).await {
       Solutions::One => {
         Ok(solution.0[row as usize][column as usize])
       }

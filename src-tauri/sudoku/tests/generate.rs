@@ -1,12 +1,10 @@
-use rand::prelude::StdRng;
-use sudoku::{Board, BoardRng, BoardTestExt, Solutions, SolverOptions};
+use sudoku::{Board, BoardTestExt, Solutions, SolverOptions};
 
 #[test]
 fn generate_default() {
   let mut board = Board::default();
-  let mut rng = StdRng::get_rng();
   assert!(matches!(
-    board.test_solve(SolverOptions::Random(&mut rng)),
+    board.test_solve(SolverOptions::Random),
     Solutions::One
   ));
   assert_ne!(board, Board::default());
