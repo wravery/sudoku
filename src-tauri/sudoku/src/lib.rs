@@ -64,22 +64,20 @@ impl Board {
       board.0[0].shuffle(&mut rng);
     }
 
-    let (solutions, board) = board.solve_recursive::<R>(SolverOptions::Random).await;
-    assert!(matches!(solutions, Solutions::One));
-
     board
+      .solve_recursive::<R>(SolverOptions::Random)
+      .await
+      .expect("Should always find at least one solution")
   }
 
-  pub async fn solve(&mut self, options: SolverOptions) -> Solutions {
-    let (solutions, board) = Board(self.0).solve_recursive::<ThreadRng>(options).await;
-    self.0 = board.0;
-    solutions
+  pub async fn solve(self, options: SolverOptions) -> Result<Board, Solutions> {
+    self.solve_recursive::<ThreadRng>(options).await
   }
 
   fn solve_recursive<'a, R: RngCore + BoardRng<R>>(
     self,
     options: SolverOptions,
-  ) -> BoxFuture<'a, (Solutions, Board)> {
+  ) -> BoxFuture<'a, Result<Board, Solutions>> {
     async move {
       for row in 0..9_u8 {
         for column in 0..9_u8 {
@@ -100,20 +98,20 @@ impl Board {
                     test_board.solve_recursive::<R>(options.clone())
                   };
                   match (&mut solutions, test_result.await) {
-                    (_, (Solutions::None, _)) => (),
-                    (Solutions::None, (Solutions::One, board)) => {
+                    (_, Err(Solutions::None)) => (),
+                    (Solutions::None, Ok(board)) => {
                       solutions = Solutions::One;
                       match options {
                         SolverOptions::Exhaustive => (),
                         _ => {
                           // Recursively solved with that value.
-                          return (solutions, board);
+                          return Ok(board);
                         }
                       };
                     }
-                    (_, (Solutions::One | Solutions::Multiple, _)) => {
+                    (_, _) => {
                       // Put back the 0 value to restore the board to its original state.
-                      return (Solutions::Multiple, self);
+                      return Err(Solutions::Multiple);
                     }
                   }
                 }
@@ -121,14 +119,17 @@ impl Board {
             }
 
             // Put back the 0 value so the caller can try its next value.
-            return (solutions, self);
+            return match solutions {
+              Solutions::One => Ok(self),
+              _ => Err(solutions),
+            };
           }
         }
       }
       // No more uninitialized values, make sure the initial state was valid.
       match self.check_all() {
-        true => (Solutions::One, self),
-        false => (Solutions::None, self),
+        true => Ok(self),
+        false => Err(Solutions::None),
       }
     }
     .boxed()
@@ -197,7 +198,7 @@ impl Board {
       let test_column = usize::from(*column);
       let mut test_board = Board(self.0);
       test_board.0[test_row][test_column] = 0;
-      if let (Solutions::One, board) = test_board
+      if let Ok(board) = test_board
         .solve_recursive::<R>(SolverOptions::Exhaustive)
         .await
       {
@@ -371,9 +372,13 @@ impl BoardTestExt for Board {
   }
 
   fn test_solve(&mut self, options: SolverOptions) -> Solutions {
-    let (solutions, board) = block_on(Board(self.0).solve_recursive::<StdRng>(options));
-    self.0 = board.0;
-    solutions
+    match block_on(Board(self.0).solve_recursive::<StdRng>(options)) {
+      Ok(board) => {
+        self.0 = board.0;
+        Solutions::One
+      }
+      Err(solutions) => solutions,
+    }
   }
 
   fn test_remove_values(&mut self, max_count: u8) -> u8 {
