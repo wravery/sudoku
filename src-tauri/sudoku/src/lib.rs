@@ -192,21 +192,56 @@ impl Board {
       choices.shuffle(&mut rng);
     }
 
-    let mut count = 0;
-    for (row, column) in choices.iter().filter_map(|c| c.as_ref()) {
-      let test_row = usize::from(*row);
-      let test_column = usize::from(*column);
+    let choices: Vec<_> = choices.iter().filter_map(|c| *c).collect();
+    let mut first_skipped = 0_usize;
+    let mut low = 0_usize;
+    let mut high = choices.len();
+    while low < high {
+      let middle = (low + high) / 2;
+
       let mut test_board = Board(self.0);
-      test_board.0[test_row][test_column] = 0;
-      if let Ok(board) = test_board
+      for (row, column) in choices[0..middle].iter() {
+        let test_row = usize::from(*row);
+        let test_column = usize::from(*column);
+        test_board.0[test_row][test_column] = 0;
+      }
+
+      if let Ok(_) = test_board
         .solve_recursive::<R>(SolverOptions::Exhaustive)
         .await
       {
-        self.0 = board.0;
+        first_skipped = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
+    }
+
+    let mut count = 0;
+
+    for (row, column) in choices.iter() {
+      let test_row = usize::from(*row);
+      let test_column = usize::from(*column);
+
+      if usize::from(count) < first_skipped {
+        // We don't need to solve it again if we already know this cell is removable.
+        self.0[test_row][test_column] = 0;
         count += 1;
-        if count >= max_count {
-          break;
+      } else {
+        // Try removing the next cell and see if the board is still sound.
+        let mut test_board = Board(self.0);
+        test_board.0[test_row][test_column] = 0;
+        if let Ok(board) = test_board
+          .solve_recursive::<R>(SolverOptions::Exhaustive)
+          .await
+        {
+          self.0 = board.0;
+          count += 1;
         }
+      }
+
+      if count >= max_count {
+        break;
       }
     }
 
