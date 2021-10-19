@@ -8,7 +8,7 @@
     showHints,
   } from "./store";
   import { fade, fly } from "svelte/transition";
-  import { createEventDispatcher } from "svelte";
+  import { createEventDispatcher, tick } from "svelte";
 
   const dispatch =
     createEventDispatcher<{ clickCell: { row: number; column: number } }>();
@@ -37,18 +37,12 @@
     return styles.join(" ");
   };
 
-  const onFocusCell = (row: number, column: number) => {
-    if (!$current[row][column]) {
-      selected.set({ row, column });
-    }
+  const onFocusCell = async (row: number, column: number) => {
+    selected.set({ row, column });
   };
 
-  const onClickCell = (target: EventTarget, row: number, column: number) => {
-    (target as HTMLDivElement).blur();
-    if (!$current[row][column]) {
-      selected.set(null);
-      dispatch("clickCell", { row, column });
-    }
+  const onClickCell = (row: number, column: number) => {
+    dispatch("clickCell", { row, column });
   };
 </script>
 
@@ -63,7 +57,7 @@
             $selected.row === rowNumber &&
             $selected.column === columnNumber}
           class:empty={!cell}
-          on:click={(e) => onClickCell(e.target, rowNumber, columnNumber)}
+          on:dblclick={() => onClickCell(rowNumber, columnNumber)}
           on:focus={() => onFocusCell(rowNumber, columnNumber)}
           tabindex={cell ? -1 : 0}
         >
