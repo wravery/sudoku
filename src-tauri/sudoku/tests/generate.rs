@@ -2,23 +2,19 @@ use sudoku::{Board, BoardTestExt, Solutions, SolverOptions};
 
 #[test]
 fn generate_default() {
-  let mut board = Board::default();
-  assert!(matches!(
-    board.test_solve(SolverOptions::Random),
-    Solutions::One
-  ));
+  let board = Board::default()
+    .test_solve(SolverOptions::Random)
+    .expect("should succeed");
   assert_ne!(board, Board::default());
   println!("Generated: {}", board);
 }
 
 #[test]
 fn multiple_default() {
-  let mut board = Board::default();
   assert!(matches!(
-    board.test_solve(SolverOptions::Exhaustive),
-    Solutions::Multiple
+    Board::default().test_solve(SolverOptions::Exhaustive),
+    Err(Solutions::Multiple)
   ));
-  assert_eq!(board, Board::default());
 }
 
 #[test]
@@ -28,10 +24,7 @@ fn remove_one() {
   assert_eq!(board.test_remove_values(1), 1);
   assert_ne!(board, original);
   println!("After removing: 1 Board: {}", board);
-  assert!(matches!(
-    board.test_solve(SolverOptions::FirstOnly),
-    Solutions::One
-  ));
+  let board = board.test_solve(SolverOptions::FirstOnly).expect("should succeed");
   println!("Solution: {}", board);
 }
 
@@ -41,9 +34,6 @@ fn remove_all() {
   let removed = board.test_remove_values(81);
   assert!((2..81).contains(&removed));
   println!("After removing: {} Board: {}", removed, board);
-  assert!(matches!(
-    board.test_solve(SolverOptions::FirstOnly),
-    Solutions::One
-  ));
+  let board = board.test_solve(SolverOptions::FirstOnly).expect("should succeed");
   println!("Solution: {}", board);
 }

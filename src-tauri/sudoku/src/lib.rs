@@ -16,11 +16,10 @@ pub enum Check {
 #[derive(Debug)]
 pub enum Solutions {
   None,
-  One,
   Multiple,
 }
 
-const MASK_ALL: u16 = 0b111111111;
+const MASK_ALL: u16 = 0x1FF;
 
 #[derive(Clone)]
 pub enum SolverOptions {
@@ -83,36 +82,41 @@ impl Board {
         for column in 0..9_u8 {
           if self.0[usize::from(row)][usize::from(column)] == 0 {
             let remaining = self.all_remaining(row, column);
-            let mut solutions = Solutions::None;
+            let mut solutions = Some(Solutions::None);
             if remaining != 0 {
               let mut remaining = Self::expand_remaining(remaining);
               if let SolverOptions::Random = options {
                 let mut rng = R::get_rng();
                 remaining.shuffle(&mut rng);
               }
-              for value in remaining {
-                if value != 0 {
-                  let test_result = {
+              let test_results: Vec<_> = remaining
+                .iter()
+                .filter_map(|value| match value {
+                  0 => None,
+                  _ => Some({
                     let mut test_board = Board(self.0);
-                    test_board.0[usize::from(row)][usize::from(column)] = value;
+                    test_board.0[usize::from(row)][usize::from(column)] = *value;
                     test_board.solve_recursive::<R>(options.clone())
-                  };
-                  match (&mut solutions, test_result.await) {
-                    (_, Err(Solutions::None)) => (),
-                    (Solutions::None, Ok(board)) => {
-                      solutions = Solutions::One;
-                      match options {
-                        SolverOptions::Exhaustive => (),
-                        _ => {
-                          // Recursively solved with that value.
-                          return Ok(board);
-                        }
-                      };
-                    }
-                    (_, _) => {
-                      // Put back the 0 value to restore the board to its original state.
-                      return Err(Solutions::Multiple);
-                    }
+                  }),
+                })
+                .collect();
+
+              for test_result in test_results.into_iter() {
+                match (&mut solutions, test_result.await) {
+                  (_, Err(Solutions::None)) => (),
+                  (Some(Solutions::None), Ok(board)) => {
+                    solutions = None;
+                    match options {
+                      SolverOptions::Exhaustive => (),
+                      _ => {
+                        // Recursively solved with that value.
+                        return Ok(board);
+                      }
+                    };
+                  }
+                  (_, _) => {
+                    // Put back the 0 value to restore the board to its original state.
+                    return Err(Solutions::Multiple);
                   }
                 }
               }
@@ -120,8 +124,8 @@ impl Board {
 
             // Put back the 0 value so the caller can try its next value.
             return match solutions {
-              Solutions::One => Ok(self),
-              _ => Err(solutions),
+              None => Ok(self),
+              Some(solutions) => Err(solutions),
             };
           }
         }
@@ -192,56 +196,83 @@ impl Board {
       choices.shuffle(&mut rng);
     }
 
-    let choices: Vec<_> = choices.iter().filter_map(|c| *c).collect();
-    let mut first_skipped = 0_usize;
-    let mut low = 0_usize;
-    let mut high = choices.len();
-    while low < high {
-      let middle = (low + high) / 2;
-
-      let mut test_board = Board(self.0);
-      for (row, column) in choices[0..middle].iter() {
-        let test_row = usize::from(*row);
-        let test_column = usize::from(*column);
-        test_board.0[test_row][test_column] = 0;
-      }
-
-      if let Ok(_) = test_board
-        .solve_recursive::<R>(SolverOptions::Exhaustive)
-        .await
-      {
-        first_skipped = middle;
-        low = middle + 1;
-      } else {
-        high = middle - 1;
-      }
-    }
-
     let mut count = 0;
+    let mut next = 0_usize;
+    let mut binary_search = true;
+    while binary_search && count < max_count && next < choices.len() {
+      // Perform a binary search to find the next cell that can't be removed.
+      let mut low = next;
+      let mut high = choices.len();
+      let mut test_count = 0_usize;
+      let previous = next;
+      while low < high && count < max_count {
+        let middle = (low + high) / 2;
+        let mut test_board: Option<Board> = None;
+        for choice in choices[next..=middle].iter() {
+          if let Some((row, column)) = choice {
+            let mut board = test_board.map_or_else(|| Board(self.0), |board| board);
+            let test_row = usize::from(*row);
+            let test_column = usize::from(*column);
+            board.0[test_row][test_column] = 0;
+            test_board = Some(board);
+          }
+        }
 
-    for (row, column) in choices.iter() {
-      let test_row = usize::from(*row);
-      let test_column = usize::from(*column);
+        if test_board.is_some() {
+          test_count += 1;
+        }
 
-      if usize::from(count) < first_skipped {
-        // We don't need to solve it again if we already know this cell is removable.
-        self.0[test_row][test_column] = 0;
-        count += 1;
-      } else {
-        // Try removing the next cell and see if the board is still sound.
-        let mut test_board = Board(self.0);
-        test_board.0[test_row][test_column] = 0;
-        if let Ok(board) = test_board
-          .solve_recursive::<R>(SolverOptions::Exhaustive)
-          .await
+        if test_board.is_none()
+          || test_board
+            .unwrap()
+            .solve_recursive::<R>(SolverOptions::Exhaustive)
+            .await
+            .is_ok()
         {
-          self.0 = board.0;
-          count += 1;
+          while count < max_count && next <= middle {
+            if let Some((row, column)) = choices[next].take() {
+              let row = usize::from(row);
+              let column = usize::from(column);
+              self.0[row][column] = 0;
+              count += 1;
+            }
+            next += 1;
+          }
+          low = next;
+        } else {
+          high = middle;
         }
       }
 
-      if count >= max_count {
-        break;
+      if previous + test_count > next {
+        // Stop using the binary search once we no longer break even on tests vs. progress.
+        binary_search = false;
+      }
+
+      choices[next] = None;
+      next += 1;
+    }
+
+    if !binary_search {
+      // Finish removing candidates using a linear scan.
+      while count < max_count && next < choices.len() {
+        if let Some((row, column)) = choices[next].take() {
+          let test_row = usize::from(row);
+          let test_column = usize::from(column);
+          let mut test_board = Board(self.0);
+          test_board.0[test_row][test_column] = 0;
+
+          if test_board
+            .solve_recursive::<R>(SolverOptions::Exhaustive)
+            .await
+            .is_ok()
+          {
+            self.0[test_row][test_column] = 0;
+            count += 1;
+          }
+        }
+
+        next += 1;
       }
     }
 
@@ -397,7 +428,7 @@ impl Display for Board {
 
 pub trait BoardTestExt {
   fn test_new() -> Board;
-  fn test_solve(&mut self, options: SolverOptions) -> Solutions;
+  fn test_solve(self, options: SolverOptions) -> Result<Board, Solutions>;
   fn test_remove_values(&mut self, max_count: u8) -> u8;
 }
 
@@ -406,14 +437,8 @@ impl BoardTestExt for Board {
     block_on(Self::create::<StdRng>())
   }
 
-  fn test_solve(&mut self, options: SolverOptions) -> Solutions {
-    match block_on(Board(self.0).solve_recursive::<StdRng>(options)) {
-      Ok(board) => {
-        self.0 = board.0;
-        Solutions::One
-      }
-      Err(solutions) => solutions,
-    }
+  fn test_solve(self, options: SolverOptions) -> Result<Board, Solutions> {
+    block_on(Board(self.0).solve_recursive::<StdRng>(options))
   }
 
   fn test_remove_values(&mut self, max_count: u8) -> u8 {
