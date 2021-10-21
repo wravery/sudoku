@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     current,
+    blankCells,
     selected,
     remainingValues,
     cells,
@@ -82,6 +83,7 @@
       {/each}
     </div>
   {/each}
+  <div class="hint" in:fade>{`Remaining: ${$blankCells}`}</div>
   {#if $showHints}
     {#await $remainingValues then values}
       {#if values}
@@ -140,7 +142,7 @@
   }
 
   div.cell.selected {
-    background-color: azure;
+    background-color: skyblue;
   }
 
   div.cellNotes {

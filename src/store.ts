@@ -29,6 +29,21 @@ export const remainingValues = derived<
     column: $selected.column,
   });
 });
+export const blankCells = derived<typeof current, number>(
+  current,
+  ($current) => {
+    let blanks = 0;
+    for (let row = 0; row < $current.length; ++row) {
+      for (let column = 0; column < $current[row].length; ++column) {
+        if ($current[row][column] === 0) {
+          ++blanks;
+        }
+      }
+    }
+    return blanks;
+  },
+  0
+);
 
 const emptyNotes = () => [
   [
