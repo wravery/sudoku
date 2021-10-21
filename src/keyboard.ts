@@ -116,7 +116,9 @@ export const keyboardHandler = (e: KeyboardEvent) => {
           });
         } else {
           current.update((board) => {
-            board[row][column] = digit;
+            if (digit === 0 || board[row][column] === 0) {
+              board[row][column] = digit;
+            }
             return board;
           });
         }
