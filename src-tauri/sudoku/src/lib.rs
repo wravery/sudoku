@@ -1,6 +1,10 @@
 use std::fmt::Display;
 
-use futures::{executor::block_on, future::BoxFuture, prelude::*};
+use futures::{
+  executor::block_on,
+  future::{select_all, BoxFuture},
+  prelude::*,
+};
 use rand::prelude::*;
 
 extern crate serde;
@@ -89,7 +93,7 @@ impl Board {
                 let mut rng = R::get_rng();
                 remaining.shuffle(&mut rng);
               }
-              let test_results: Vec<_> = remaining
+              let mut test_results: Vec<_> = remaining
                 .iter()
                 .filter_map(|value| match value {
                   0 => None,
@@ -101,8 +105,14 @@ impl Board {
                 })
                 .collect();
 
-              for test_result in test_results.into_iter() {
-                match (&mut solutions, test_result.await) {
+              loop {
+                if test_results.is_empty() {
+                  break;
+                }
+
+                let (test_result, _, remaining) = select_all(test_results).await;
+                test_results = remaining;
+                match (&mut solutions, test_result) {
                   (_, Err(Solutions::None)) => (),
                   (Some(Solutions::None), Ok(board)) => {
                     solutions = None;
