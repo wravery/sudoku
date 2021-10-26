@@ -219,12 +219,15 @@ impl Board {
         let middle = (low + high) / 2;
         let mut test_board: Option<Board> = None;
         for choice in choices[next..=middle].iter() {
-          if let Some((row, column)) = choice {
-            let mut board = test_board.map_or_else(|| Board(self.0), |board| board);
-            let test_row = usize::from(*row);
-            let test_column = usize::from(*column);
-            board.0[test_row][test_column] = 0;
-            test_board = Some(board);
+          match choice {
+            Some((row, column)) => {
+              let mut board = test_board.map_or_else(|| Board(self.0), |board| board);
+              let test_row = usize::from(*row);
+              let test_column = usize::from(*column);
+              board.0[test_row][test_column] = 0;
+              test_board = Some(board);
+            }
+            None => (),
           }
         }
 
