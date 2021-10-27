@@ -91,7 +91,7 @@ export const keyboardHandler = (e: KeyboardEvent) => {
   }
 
   if (!handled) {
-    const matches = e.code.match(/^Digit([0-9])$/);
+    const matches = e.code.match(/^(?:Digit|Numpad)([0-9])$/);
     if (matches?.length === 2) {
       const digit = parseInt(matches[1]);
       if (digit >= 0 && digit <= 9) {
