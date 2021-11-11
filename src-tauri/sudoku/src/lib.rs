@@ -257,7 +257,7 @@ impl Board {
         }
       }
 
-      if previous + test_count > next {
+      if usize::from(count) > test_count && previous + test_count > next {
         // Stop using the binary search once we no longer break even on tests vs. progress.
         binary_search = false;
       }
