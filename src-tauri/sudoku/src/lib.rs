@@ -190,22 +190,7 @@ impl Board {
   }
 
   async fn remove_random<R: RngCore + BoardRng<R>>(&mut self, max_count: u8) -> u8 {
-    let mut choices = [None; 81];
-    let mut index = 0;
-    for row in 0..9_u8 {
-      let filled = self.expand_filled_row(row);
-      for column in filled.iter().filter_map(|c| c.as_ref()) {
-        let column = *column;
-        choices[index] = Some((row, column));
-        index += 1;
-      }
-    }
-
-    {
-      let mut rng = R::get_rng();
-      choices.shuffle(&mut rng);
-    }
-
+    let mut choices = self.randomize_order::<R>();
     let mut count = 0;
     let mut next = 0_usize;
     let mut binary_search = true;
@@ -290,6 +275,58 @@ impl Board {
     }
 
     count
+  }
+
+  fn randomize_order<R: RngCore + BoardRng<R>>(&self) -> [Option<(u8, u8)>; 81] {
+    let mut choices = [None; 81];
+    let mut indices = [0_usize; 9];
+    for row in 0..9_u8 {
+      let filled = self.expand_filled_row(row);
+      for column in filled.iter().filter_map(|c| c.as_ref()) {
+        let column = *column;
+        let offset = self.0[usize::from(row)][usize::from(column)] - 1;
+        let index = &mut indices[usize::from(offset)];
+        if *index == 0 && offset > 0 {
+          *index = usize::from(offset * 9);
+        }
+
+        choices[*index] = Some((row, column));
+        *index += 1;
+      }
+    }
+
+    let mut rng = R::get_rng();
+
+    // Shuffle each sub-slice of choices per-value.
+    let mut offsets = [None; 9];
+    for offset in 0..9_usize {
+      if indices[offset] != 0 {
+        let start = offset * 9;
+        let end = indices[offset];
+        choices[start..end].shuffle(&mut rng);
+        offsets[offset] = Some((start, end));
+      }
+    }
+
+    // Sample each sub-slice 9 times.
+    let mut randomized = [None; 81];
+    for sample in 0..9_usize {
+      // Shuffle the offsets each time through so the values aren't removed in the same order each time.
+      offsets.shuffle(&mut rng);
+      for offset in 0..9_usize {
+        if let Some((start, end)) = offsets[offset] {
+          randomized[(sample * 9) + offset] = choices[start];
+          let start = start + 1;
+          offsets[offset] = if start == end {
+            None
+          } else {
+            Some((start, end))
+          };
+        }
+      }
+    }
+
+    randomized
   }
 
   fn expand_filled_row(&self, row: u8) -> [Option<u8>; 9] {
