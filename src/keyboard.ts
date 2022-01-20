@@ -2,9 +2,9 @@ import {
   current,
   selected,
   cells,
-  notes,
   takingNotes,
   showHints,
+  snapshots,
 } from "./store";
 
 let $selected: { row: number; column: number } = null;
@@ -47,6 +47,27 @@ export const keyboardHandler = (e: KeyboardEvent) => {
 
     case "KeyN": {
       takingNotes.update((value) => !value);
+      handled = true;
+      break;
+    }
+
+    case "KeyS": {
+      snapshots.update((values) => {
+        let latest = JSON.parse(JSON.stringify(values[0]));
+        values.unshift(latest);
+        return values;
+      });
+      handled = true;
+      break;
+    }
+
+    case "KeyR": {
+      snapshots.update((values) => {
+        if (values.length > 1) {
+          values.shift();
+        }
+        return values;
+      });
       handled = true;
       break;
     }
@@ -96,9 +117,9 @@ export const keyboardHandler = (e: KeyboardEvent) => {
       const digit = parseInt(matches[1]);
       if (digit >= 0 && digit <= 9) {
         if ($takingNotes) {
-          notes.update((values) => {
+          snapshots.update((values) => {
             if (digit === 0) {
-              values[row][column] = [
+              values[0][row][column] = [
                 [0, 0, 0],
                 [0, 0, 0],
                 [0, 0, 0],
@@ -106,10 +127,10 @@ export const keyboardHandler = (e: KeyboardEvent) => {
             } else {
               const noteRow = ~~((digit - 1) / 3);
               const noteColumn = (digit - 1) % 3;
-              if (values[row][column][noteRow][noteColumn]) {
-                values[row][column][noteRow][noteColumn] = 0;
+              if (values[0][row][column][noteRow][noteColumn]) {
+                values[0][row][column][noteRow][noteColumn] = 0;
               } else {
-                values[row][column][noteRow][noteColumn] = digit;
+                values[0][row][column][noteRow][noteColumn] = digit;
               }
             }
             return values;

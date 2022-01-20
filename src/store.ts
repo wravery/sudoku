@@ -471,7 +471,11 @@ const emptyNotes = () => [
   ],
 ];
 
-export const notes = writable(emptyNotes());
+export const snapshots = writable([emptyNotes()]);
+export const notes = derived<typeof snapshots, number[][][][]>(
+  snapshots,
+  ($snapshots) => $snapshots[0]
+);
 
 export const takingNotes = writable(false);
 export const showHints = writable(false);
@@ -493,6 +497,6 @@ export const cells = writable(emptyCells());
 export const onNewGame = () => {
   selected.set(null);
   current.set(emptyBoard());
-  notes.set(emptyNotes());
+  snapshots.set([emptyNotes()]);
   cells.set(emptyCells());
 };
