@@ -12,13 +12,9 @@ async fn generate_board() -> Result<Board, String> {
   Ok(board)
 }
 
-#[tauri::command]
-async fn solve_value(board: Board, row: u8, column: u8) -> Result<u8, String> {
+fn check_cell(row: u8, column: u8) -> Result<(), String> {
   if (0..9).contains(&row) && (0..9).contains(&column) {
-    match board.solve(SolverOptions::FirstOnly).await {
-      Ok(board) => Ok(board.0[row as usize][column as usize]),
-      Err(solution) => Err(format!("Solver error: {:?}", solution)),
-    }
+    Ok(())
   } else {
     Err(format!(
       "Out of bounds: row: {} column: {}",
@@ -29,16 +25,18 @@ async fn solve_value(board: Board, row: u8, column: u8) -> Result<u8, String> {
 }
 
 #[tauri::command]
-async fn get_possible_values(board: Board, row: u8, column: u8) -> Result<Vec<u8>, String> {
-  if (0..9).contains(&row) && (0..9).contains(&column) {
-    Ok(board.get_all_remaining(row, column))
-  } else {
-    Err(format!(
-      "Out of bounds: row: {} column: {}",
-      row + 1,
-      column + 1
-    ))
+async fn solve_value(board: Board, row: u8, column: u8) -> Result<u8, String> {
+  check_cell(row, column)?;
+  match board.solve(SolverOptions::FirstOnly).await {
+    Ok(board) => Ok(board.0[row as usize][column as usize]),
+    Err(solution) => Err(format!("Solver error: {:?}", solution)),
   }
+}
+
+#[tauri::command]
+async fn get_possible_values(board: Board, row: u8, column: u8) -> Result<Vec<u8>, String> {
+  check_cell(row, column)?;
+  Ok(board.get_all_remaining(row, column))
 }
 
 fn main() {
