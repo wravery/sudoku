@@ -1,15 +1,15 @@
 [package]
 name = "sudoku"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-futures = "0.3.17"
-rand = "0.8.4"
+futures = "0.3.25"
+rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
-criterion = "0.3.5"
+criterion = "0.4.0"
 
 [[bench]]
 name = "generate"
