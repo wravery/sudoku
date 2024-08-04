@@ -7,8 +7,8 @@ import {
   snapshots,
 } from "./store";
 
-let $selected: { row: number; column: number } = null;
-let $cells: HTMLDivElement[][] = null;
+let $selected: { row: number; column: number } | null = null;
+let $cells: (HTMLDivElement | null)[][] | null = null;
 let $takingNotes = false;
 
 const focusSelected = () => {

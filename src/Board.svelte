@@ -11,8 +11,9 @@
   import { fade, fly } from "svelte/transition";
   import { createEventDispatcher, tick } from "svelte";
 
-  const dispatch =
-    createEventDispatcher<{ clickCell: { row: number; column: number } }>();
+  const dispatch = createEventDispatcher<{
+    clickCell: { row: number; column: number };
+  }>();
 
   const computeStyle = (row: number, column: number): string => {
     let styles = ["cell"];
@@ -47,9 +48,9 @@
   };
 </script>
 
-<section in:fly={{ y: 500 }}>
+<section in:fly={{ y: 500 }} role="grid">
   {#each $current as rowCells, rowNumber (rowNumber)}
-    <div class="row">
+    <div class="row" role="row">
       {#each rowCells as cell, columnNumber (rowNumber * 9 + columnNumber)}
         <div
           bind:this={$cells[rowNumber][columnNumber]}
@@ -61,6 +62,7 @@
           on:dblclick={() => onClickCell(rowNumber, columnNumber)}
           on:focus={() => onFocusCell(rowNumber, columnNumber)}
           tabindex={cell ? -1 : 0}
+          role="gridcell"
         >
           {#if cell}
             <span in:fly={{ y: -10 }}>{cell}</span>

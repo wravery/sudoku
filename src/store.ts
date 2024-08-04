@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { derived, writable } from "svelte/store";
 
-export const selected = writable<{ row: number; column: number }>();
+export const selected = writable<{ row: number; column: number } | null>();
 
 const emptyBoard = () => [
   [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -480,7 +480,7 @@ export const notes = derived<typeof snapshots, number[][][][]>(
 export const takingNotes = writable(false);
 export const showHints = writable(false);
 
-const emptyCells = (): HTMLDivElement[][] => [
+const emptyCells = (): (HTMLDivElement  | null)[][] => [
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null, null],
