@@ -51,7 +51,7 @@ export const keyboardHandler = (e: KeyboardEvent) => {
       break;
     }
 
-    case "KeyS": {
+    case "KeyC": {
       snapshots.update((values) => {
         let latest = JSON.parse(JSON.stringify(values[0]));
         values.unshift(latest);
@@ -61,7 +61,7 @@ export const keyboardHandler = (e: KeyboardEvent) => {
       break;
     }
 
-    case "KeyR": {
+    case "KeyV": {
       snapshots.update((values) => {
         if (values.length > 1) {
           values.shift();
@@ -81,27 +81,31 @@ export const keyboardHandler = (e: KeyboardEvent) => {
   let { row, column } = $selected;
 
   if (!handled) {
-    const matches = e.code.match(/^Arrow(Left|Right|Up|Down)/);
-    if (matches?.length === 2) {
-      switch (matches[1]) {
+    const matches = e.code.match(/^(?:Arrow(Left|Right|Up|Down)|(?:Key(W|A|S|D)))/);
+    if (matches?.length === 3) {
+      switch (matches[1] || matches[2]) {
+        case "A":
         case "Left": {
           updateSelection = --column >= 0;
           handled = true;
           break;
         }
 
+        case "D":
         case "Right": {
           updateSelection = ++column < 9;
           handled = true;
           break;
         }
 
+        case "W":
         case "Up": {
           updateSelection = --row >= 0;
           handled = true;
           break;
         }
 
+        case "S":
         case "Down": {
           updateSelection = ++row < 9;
           handled = true;
