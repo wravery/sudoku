@@ -480,7 +480,7 @@ export const notes = derived<typeof snapshots, number[][][][]>(
 export const takingNotes = writable(false);
 export const showHints = writable(false);
 
-const emptyCells = (): (HTMLDivElement  | null)[][] => [
+const emptyCells = (): (HTMLDivElement | null)[][] => [
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null, null],

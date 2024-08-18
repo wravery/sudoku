@@ -2,7 +2,7 @@
   import { takingNotes, showHints } from "./store";
   import { createEventDispatcher } from "svelte";
 
-  const dispatch = createEventDispatcher<{ reload: never }>();
+  const dispatch = createEventDispatcher<{ reload?: never }>();
   const reload = () => dispatch("reload");
 </script>
 

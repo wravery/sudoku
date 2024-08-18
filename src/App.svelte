@@ -8,7 +8,12 @@
 
   let boardPromise: Promise<void>;
 
-  const onClickCell = (event: CustomEvent<{ row: number; column: number }>) => {
+  const onClickCell = (
+    event: CustomEvent<{
+      row: number;
+      column: number;
+    }>
+  ) => {
     const { row, column } = event.detail;
     if (!$current[row][column]) {
       invoke("solve_value", {
@@ -16,9 +21,9 @@
         row,
         column,
       })
-        .then((value: number) => {
+        .then((value) => {
           current.update((board) => {
-            board[row][column] = value;
+            board[row][column] = value as number;
             return board;
           });
         })
@@ -29,9 +34,14 @@
   };
 
   const onReload = () => {
+    document.addEventListener("contextmenu", function (event) {
+      event.preventDefault();
+      return false;
+    });
+
     onNewGame();
-    boardPromise = invoke("generate_board").then((value: number[][]) => {
-      current.set(value);
+    boardPromise = invoke("generate_board").then((value) => {
+      current.set(value as number[][]);
     });
   };
 

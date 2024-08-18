@@ -1,6 +1,6 @@
 {
   "package": {
-    "productName": "sudoku",
+    "productName": "My Sudoku",
     "version": "1.0.0"
   },
   "build": {
@@ -24,7 +24,7 @@
       "resources": [],
       "externalBin": [],
       "copyright": "",
-      "category": "DeveloperTool",
+      "category": "PuzzleGame",
       "shortDescription": "",
       "longDescription": "",
       "deb": {
