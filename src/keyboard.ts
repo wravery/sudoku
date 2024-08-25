@@ -158,11 +158,16 @@ export const keyboardHandler = (e: KeyboardEvent) => {
                         [0, 0, 0],
                         [0, 0, 0],
                       ];
+                      const sectionRow = row - (row % 3);
+                      const sectionColumn = column - (column % 3);
                       const noteRow = ~~((digit - 1) / 3);
                       const noteColumn = (digit - 1) % 3;
                       for (let i = 0; i < 9; ++i) {
                         values[0][i][column][noteRow][noteColumn] = 0;
                         values[0][row][i][noteRow][noteColumn] = 0;
+                        const rowOffset = ~~(i / 3);
+                        const columnOffset = i % 3;
+                        values[0][sectionRow + rowOffset][sectionColumn + columnOffset][noteRow][noteColumn] = 0;
                       }
                       return values;
                     });
