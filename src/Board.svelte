@@ -58,14 +58,15 @@
           class:selected={$selected &&
             $selected.row === rowNumber &&
             $selected.column === columnNumber}
-          class:empty={!cell}
+          class:empty={!cell.value}
+          class:wrong={cell.isWrong}
           on:dblclick={() => onClickCell(rowNumber, columnNumber)}
           on:focus={() => onFocusCell(rowNumber, columnNumber)}
-          tabindex={cell ? -1 : 0}
+          tabindex={cell.value ? -1 : 0}
           role="gridcell"
         >
-          {#if cell}
-            <span in:fly={{ y: -10 }}>{cell}</span>
+          {#if cell.value}
+            <span in:fly={{ y: -10 }}>{cell.value}</span>
           {:else}
             <div class="cellNotes">
               {#each $notes[rowNumber][columnNumber] as notesRow, noteRowNumber (noteRowNumber)}
@@ -145,6 +146,10 @@
 
   div.cell.selected {
     background-color: skyblue;
+  }
+
+  div.cell.wrong {
+    color: red;
   }
 
   div.cellNotes {

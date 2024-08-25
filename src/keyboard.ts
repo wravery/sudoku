@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/tauri";
 import {
   current,
   selected,
@@ -141,8 +142,38 @@ export const keyboardHandler = (e: KeyboardEvent) => {
           });
         } else {
           current.update((board) => {
-            if (digit === 0 || board[row][column] === 0) {
-              board[row][column] = digit;
+            if (digit === 0 || board[row][column].value === 0) {
+              board[row][column].value = digit;
+              board[row][column].isWrong = false;
+              if (digit !== 0) {
+                invoke("solve_value", {
+                  board: board.map((row) => row.map((cell) => cell.value)),
+                  row,
+                  column,
+                })
+                  .then(() => {
+                    snapshots.update((values) => {
+                      values[0][row][column] = [
+                        [0, 0, 0],
+                        [0, 0, 0],
+                        [0, 0, 0],
+                      ];
+                      const noteRow = ~~((digit - 1) / 3);
+                      const noteColumn = (digit - 1) % 3;
+                      for (let i = 0; i < 9; ++i) {
+                        values[0][i][column][noteRow][noteColumn] = 0;
+                        values[0][row][i][noteRow][noteColumn] = 0;
+                      }
+                      return values;
+                    });
+                  })
+                  .catch(() => {
+                    current.update((board) => {
+                      board[row][column].isWrong = true;
+                      return board;
+                    })
+                  });
+              }
             }
             return board;
           });

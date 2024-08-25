@@ -3,17 +3,20 @@ import { derived, writable } from "svelte/store";
 
 export const selected = writable<{ row: number; column: number } | null>();
 
-const emptyBoard = () => [
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0, 0, 0, 0, 0],
-];
+const emptyBoard = () => {
+  const emptyCell = { value: 0, isWrong: false };
+  return [
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+    [emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell, emptyCell],
+  ];
+};
 
 export const current = writable(emptyBoard());
 export const remainingValues = derived<
@@ -24,7 +27,7 @@ export const remainingValues = derived<
     return null;
   }
   return invoke<number[]>("get_possible_values", {
-    board: $current,
+    board: $current.map((row) => row.map((cell) => cell.value)),
     row: $selected.row,
     column: $selected.column,
   });
@@ -35,7 +38,7 @@ export const blankCells = derived<typeof current, number>(
     let blanks = 0;
     for (let row = 0; row < $current.length; ++row) {
       for (let column = 0; column < $current[row].length; ++column) {
-        if ($current[row][column] === 0) {
+        if ($current[row][column].value === 0) {
           ++blanks;
         }
       }

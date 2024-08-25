@@ -15,15 +15,22 @@
     }>
   ) => {
     const { row, column } = event.detail;
-    if (!$current[row][column]) {
+    if (!$current[row][column].value || $current[row][column].isWrong) {
       invoke("solve_value", {
-        board: $current,
+        board: $current.map((cells, rowIndex) =>
+          cells.map((cell, columnIndex) =>
+            cell.isWrong || (rowIndex === row && columnIndex === column)
+              ? 0
+              : cell.value
+          )
+        ),
         row,
         column,
       })
         .then((value) => {
           current.update((board) => {
-            board[row][column] = value as number;
+            board[row][column].value = value as number;
+            board[row][column].isWrong = false;
             return board;
           });
         })
@@ -41,7 +48,11 @@
 
     onNewGame();
     boardPromise = invoke("generate_board").then((value) => {
-      current.set(value as number[][]);
+      current.set(
+        (value as number[][]).map((row) =>
+          row.map((cell) => ({ value: cell, isWrong: false }))
+        )
+      );
     });
   };
 
